@@ -4,10 +4,13 @@
 #   run_r_method.sh <vendored_script.R> --output_dir D --name N \
 #       --data.h5ad H --split.set2conditions S [--seed K]
 #
-# Runs the vendored script VERBATIM via wrapper.R (which masks the script's
-# hardcoded basilisk path), translating OmniBenchmark's CLI into the working-dir
-# layout the scripts expect, then dedups + gzips the predictions. Adding another
-# R method is a one-line wrapper that calls this with its script name.
+# Runs the vendored script VERBATIM via wrapper.R (which swaps the reader to
+# picklerick), translating OmniBenchmark's CLI into the GEARS working-dir layout
+# the scripts expect, then dedups + gzips the predictions. Adding another R method
+# is a one-line wrapper that calls this with its script name.
+#
+# Reads the preprocess (anndata-rewritten) h5ad — picklerick can read that but not
+# the legacy GEARS archive h5ad. Lineage: download->preprocess->split->methods.
 set -euo pipefail
 export PYTHONNOUSERSITE=1   # ~/.local site-packages leak into the conda env otherwise
 
@@ -42,6 +45,8 @@ fi
 
 wd=$(mktemp -d); trap 'rm -rf "$wd"' EXIT
 mkdir -p "$wd/data/gears_pert_data/$ds" "$wd/results"
+# The preprocess h5ad (anndata-rewritten) is what the scripts read via picklerick;
+# place it where they look: data/gears_pert_data/<ds>/perturb_processed.h5ad.
 ln -sf "$(realpath "$data_h5ad")" "$wd/data/gears_pert_data/$ds/perturb_processed.h5ad"
 cfg="config"; rid="result"
 cp "$split" "$wd/results/$cfg"

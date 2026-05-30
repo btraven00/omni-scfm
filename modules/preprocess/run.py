@@ -2,10 +2,18 @@
 """OmniBenchmark module: preprocess a downloaded GEARS dataset.
 
 Seed-independent. Takes the raw archive from the `download` stage (a GEARS
-`*.zip` containing `<name>/perturb_processed.h5ad`) and emits:
+`*.zip` containing `<name>/perturb_processed.h5ad`, `go.csv`) and emits:
 
-  - {name}.h5ad             the processed expression AnnData (extracted as-is)
+  - {name}.h5ad             the processed expression AnnData, re-written via
+                            anndata. This adds the modern root `encoding-type`
+                            attribute the GEARS-era file lacks, so picklerick can
+                            read it; GEARS/scanpy and our metrics read it identically.
   - {name}.gene_names.json  gene symbols in X-column order (from var.gene_name)
+  - {name}.go.csv           the dataset's GO table, passed through for the split
+
+TODO: once picklerick reads legacy AnnData h5ad (missing root encoding-type, e.g.
+GEARS'), the downstream R methods could read the original archive h5ad directly
+and this anndata re-write + go.csv passthrough could be dropped (simpler DAG).
 
 Inputs (OB flag = upstream output id):
   --data.raw PATH   path to the downloaded archive (.zip) or a .h5ad directly
@@ -43,6 +51,19 @@ def _find_h5ad(raw_path: Path, workdir: Path) -> Path:
     raise SystemExit(f"unrecognised raw input (expected .zip or .h5ad): {raw_path}")
 
 
+def _extract_go(raw_path: Path, dest: Path) -> bool:
+    """Pull go.csv out of the archive to `dest`; return False if absent."""
+    if not zipfile.is_zipfile(raw_path):
+        return False
+    with zipfile.ZipFile(raw_path) as zf:
+        members = [m for m in zf.namelist() if m.endswith("go.csv")]
+        if not members:
+            return False
+        with zf.open(members[0]) as src, open(dest, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+    return True
+
+
 def main() -> None:
     args = parse_ob_args()
     output_dir = Path(require(args, "output_dir"))
@@ -61,12 +82,13 @@ def main() -> None:
         )
 
         out_h5ad = output_dir / f"{name}.h5ad"
-        adata.write_h5ad(out_h5ad)
+        adata.write_h5ad(out_h5ad)  # adds modern encoding-type attrs (picklerick-readable)
         with open(output_dir / f"{name}.gene_names.json", "w", encoding="utf8") as fh:
             json.dump(gene_names, fh)
+        has_go = _extract_go(raw, output_dir / f"{name}.go.csv")
 
     print(f"preprocess: wrote {out_h5ad} ({adata.shape[0]} cells x {adata.shape[1]} genes), "
-          f"{len(gene_names)} gene names")
+          f"{len(gene_names)} gene names, go.csv={'yes' if has_go else 'absent'}")
 
 
 if __name__ == "__main__":

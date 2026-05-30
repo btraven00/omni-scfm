@@ -8,7 +8,9 @@
 # also handles each dataset's split logic (Adamson 'simulation', Norman custom).
 #
 # Inputs (OB):
-#   --data.raw PATH   the GEARS dataset archive from `download` (<ds>/perturb_processed.h5ad, go.csv)
+#   --data.h5ad PATH  processed AnnData from `preprocess` (GEARS reads it identically
+#                     to the original archive -> bit-exact split; verified)
+#   --data.go PATH    the dataset's go.csv (from `preprocess`)
 #   --seed INT        split seed (paper: 1,2 single-pert; 1..5 double-pert)
 # Output:
 #   {dataset}.set2conditions.json   {"train","val","test"}
@@ -18,27 +20,28 @@ export PYTHONNOUSERSITE=1   # ~/.local/lib/python3.10 leaks into the env otherwi
 REPO="$(pwd)"
 PREP="$REPO/vendor/paper/benchmark/src/prepare_perturbation_data.py"
 
-output_dir="" ; data_raw="" ; seed="1"
+output_dir="" ; data_h5ad="" ; data_go="" ; seed="1"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --output_dir)            output_dir="$2"; shift 2 ;;
-    --name)                  shift 2 ;;
-    --data.raw|--data_raw)   data_raw="$2";   shift 2 ;;
-    --seed)                  seed="$2";       shift 2 ;;
-    *)                       shift ;;
+    --output_dir)              output_dir="$2"; shift 2 ;;
+    --name)                    shift 2 ;;
+    --data.h5ad|--data_h5ad)   data_h5ad="$2";  shift 2 ;;
+    --data.go|--data_go)       data_go="$2";    shift 2 ;;
+    --seed)                    seed="$2";       shift 2 ;;
+    *)                         shift ;;
   esac
 done
-[[ -n $output_dir && -n $data_raw ]] || {
-  echo "split/run.sh: need --output_dir and --data.raw" >&2; exit 2; }
+[[ -n $output_dir && -n $data_h5ad ]] || {
+  echo "split/run.sh: need --output_dir and --data.h5ad" >&2; exit 2; }
 
-ds=$(basename "$data_raw"); ds="${ds%%.*}"
+ds=$(basename "$data_h5ad"); ds="${ds%%.*}"
 
 wd=$(mktemp -d); trap 'rm -rf "$wd"' EXIT
-mkdir -p "$wd/data/gears_pert_data" "$wd/results"
-# The GEARS archive contains "<ds>/perturb_processed.h5ad" (+ go.csv); extracting
-# into the pert-data folder lets GEARS load(<ds>) use it instead of re-downloading.
-python -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" \
-    "$data_raw" "$wd/data/gears_pert_data"
+mkdir -p "$wd/data/gears_pert_data/$ds" "$wd/results"
+# Assemble the GEARS pert-data folder so load(<ds>) uses our data (no re-download):
+# the processed h5ad as perturb_processed.h5ad + the dataset's go.csv.
+ln -sf "$(realpath "$data_h5ad")" "$wd/data/gears_pert_data/$ds/perturb_processed.h5ad"
+[[ -n $data_go ]] && cp "$data_go" "$wd/data/gears_pert_data/$ds/go.csv"
 # Optional: reuse a cached gene2go / pert-gene graph to skip the ~9MB download.
 if [[ -n "${OMNI_GEARS_CACHE:-}" && -d "$OMNI_GEARS_CACHE" ]]; then
   cp -n "$OMNI_GEARS_CACHE"/*.pkl "$wd/data/gears_pert_data/" 2>/dev/null || true

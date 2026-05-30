@@ -54,6 +54,8 @@ stages:
         path: "{dataset}.h5ad"
       - id: data.gene_names
         path: "{dataset}.gene_names.json"
+      - id: data.go
+        path: "{dataset}.go.csv"
     modules:
       - id: gears_h5ad
         name: "extract perturb_processed.h5ad + gene names"
@@ -68,7 +70,8 @@ stages:
   #    filtering matches exactly (see THIRD_PARTY.md / docs).
   - id: split
     inputs:
-      - data.raw
+      - data.h5ad
+      - data.go
     outputs:
       - id: split.set2conditions
         path: "{dataset}.set2conditions.json"
@@ -104,6 +107,8 @@ stages:
           entrypoint: ground_truth
 
   # 5. Predictive methods (per seed). Baselines first; DL methods later.
+  #    Read the preprocess h5ad (picklerick-readable) + the per-seed split;
+  #    lineage is download->preprocess->split->methods.
   - id: methods
     inputs:
       - data.h5ad
