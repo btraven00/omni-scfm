@@ -1,0 +1,17 @@
+name: r
+channels:
+- conda-forge
+- bioconda
+- https://prefix.dev/almost-conductor
+- nodefaults
+dependencies:
+- r-base 4.4.*
+- bioconductor-singlecellexperiment *
+- bioconductor-glmgampoi *
+- bioconductor-zellkonverter *
+- bioconductor-matrixgenerics *
+- r-tidyverse *
+- r-argparser *
+- r-rjson *
+- r-tidylog *
+- python >=3.10,<3.13

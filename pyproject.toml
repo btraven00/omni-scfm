@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "omni-scfm"
+version = "0.1.0"
+description = "Shared library for the omni-scfm perturbation-prediction benchmark"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "anndata",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omni_scfm"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

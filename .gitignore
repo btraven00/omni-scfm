@@ -2,6 +2,9 @@
 out/
 .snakemake/
 
+# Local planning / scratch (not part of the benchmark)
+scratch/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,0 +1,10 @@
+# OmniBenchmark module configuration (repo root).
+#
+# This monorepo exposes every local module as a NAMED entrypoint here. In
+# benchmark.yaml a module references one via `repository: {url: ".", entrypoint: <key>}`,
+# so all modules live in this single repo instead of one repo per module.
+entrypoints:
+  preprocess: modules/preprocess/run.py
+  split: modules/split/run.py
+  ground_truth: modules/methods/ground_truth/run.py
+  mean: modules/methods/mean/run.sh

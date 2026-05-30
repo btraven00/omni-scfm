@@ -1,0 +1,13 @@
+name: default
+channels:
+- conda-forge
+- bioconda
+- https://prefix.dev/almost-conductor
+- nodefaults
+dependencies:
+- scanpy *
+- anndata *
+- pandas *
+- pyarrow *
+- pytest *
+- python >=3.10,<3.13

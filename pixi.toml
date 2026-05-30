@@ -1,0 +1,53 @@
+[workspace]
+name = "omni-scfm"
+authors = ["ben <ben.uzh@proton.me>"]
+channels = ["conda-forge", "bioconda", "https://prefix.dev/almost-conductor"]
+platforms = ["linux-64"]
+version = "0.1.0"
+
+# Top-level (implicit "default" feature) deps are shared by every environment.
+[dependencies]
+python = ">=3.10,<3.13"
+
+# --- features ---------------------------------------------------------------
+# base: the shared scientific env behind src/omni_scfm and the light modules
+[feature.base.dependencies]
+scanpy = "*"
+anndata = "*"
+pandas = "*"
+pyarrow = "*"
+pytest = "*"
+
+# omnidata: the data-download env (hapiq from the almost-conductor channel)
+[feature.omnidata.dependencies]
+hapiq = "*"
+bash = "*"
+
+# r: Bioconductor env to run the paper's R scripts verbatim (mean, collect, ...).
+# Mirrors run_mean_prediction.R's library() / :: calls; versions ~ renv.lock (R 4.4).
+[feature.r.dependencies]
+r-base = "4.4.*"
+bioconductor-genomeinfodbdata = "*"  # data pkg conda doesn't auto-pull for GenomeInfoDb
+bioconductor-singlecellexperiment = "*"
+bioconductor-glmgampoi = "*"
+bioconductor-zellkonverter = "*"
+bioconductor-matrixgenerics = "*"
+r-tidyverse = "*"
+r-argparser = "*"
+r-rjson = "*"
+r-tidylog = "*"
+
+# --- environments (pixi solves each independently) --------------------------
+[environments]
+default = { features = ["base"] }
+omnidata = { features = ["omnidata"] }
+r = { features = ["r"] }
+
+# --- env export tasks: pixi -> envs/*.yml that benchmark.yaml references -----
+[tasks]
+export-base = "pixi workspace export conda-environment --environment default envs/base.yml"
+export-omnidata = "pixi workspace export conda-environment --environment omnidata envs/omni-data.yml"
+export-r = "pixi workspace export conda-environment --environment r envs/r.yml"
+# Collect metrics for one run: `pixi run collect [OUT_DIR] [-o SCORES.parquet]`
+# (defaults to ./out -> ./out/scores.parquet). Pass another run's dir explicitly.
+collect = { cmd = "python -m omni_scfm.collect", env = { PYTHONPATH = "src" } }

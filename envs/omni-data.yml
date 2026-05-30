@@ -1,0 +1,10 @@
+name: omnidata
+channels:
+- conda-forge
+- bioconda
+- https://prefix.dev/almost-conductor
+- nodefaults
+dependencies:
+- hapiq *
+- bash *
+- python >=3.10,<3.13

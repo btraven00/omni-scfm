@@ -3,15 +3,41 @@ message: "If you use this benchmark, please cite it as below."
 type: software
 title: "omni-scfm"
 authors:
-  - family-names: "btraven"
-    given-names: ""
+  - family-names: "Carrillo"
+    given-names: "Ben"
     email: "ben.uzh@proton.me"
 version: "0.1.0"
 date-released: "2026-05-30"
-url: "https://github.com/CHANGE_ME/omni-scfm"
+url: "https://github.com/btraven00/omni-scfm"
 abstract: "Benchmarking deep learning models for perturbation prediction"
 license: MIT
 keywords:
   - benchmark
   - bioinformatics
   - omnibenchmark
+  - single-cell
+  - perturbation prediction
+references:
+  # Original analysis this benchmark reproduces (journal article).
+  - type: article
+    title: "Deep learning-based predictions of gene perturbation effects do not yet outperform simple linear baselines"
+    authors:
+      - family-names: "Ahlmann-Eltze"
+        given-names: "Constantin"
+      - family-names: "Huber"
+        given-names: "Wolfgang"
+      - family-names: "Anders"
+        given-names: "Simon"
+    journal: "Nature Methods"
+    year: 2025
+    doi: "10.1038/s41592-025-02772-6"
+  # Original code, vendored verbatim as the git submodule under vendor/paper/ (MIT, (c) 2024 Constantin Ahlmann-Eltze).
+  - type: software
+    title: "linear_perturbation_prediction-Paper"
+    authors:
+      - family-names: "Ahlmann-Eltze"
+        given-names: "Constantin"
+    repository-code: "https://github.com/const-ae/linear_perturbation_prediction-Paper"
+    doi: "10.5281/zenodo.14832393"
+    license: MIT
+    notes: "Reused verbatim via git submodule (vendor/paper/); see vendor/paper/LICENSE.md."

@@ -1,0 +1,3 @@
+[submodule "vendor/paper"]
+	path = vendor/paper
+	url = https://github.com/const-ae/linear_perturbation_prediction-Paper

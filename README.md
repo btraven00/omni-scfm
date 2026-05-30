@@ -4,7 +4,7 @@ Benchmarking deep learning models for perturbation prediction
 
 ## Overview
 
-This benchmark was created using [OmniBenchmark](https://omnibenchmark.org) v0.5.1.post3+g88b799420.d20260526, a framework for automated scientific benchmarking.
+This benchmark was created using [OmniBenchmark](https://omnibenchmark.org) v0.5.1, a framework for automated scientific benchmarking.
 
 ## Author
 

@@ -1,78 +1,117 @@
 name: omni-scfm
 id: omni_scfm
-description: Benchmarking deep learning models for perturbation prediction
+description: >
+  Benchmarking deep-learning models for gene-perturbation prediction —
+  a lean, OmniBenchmark-native reproduction of Ahlmann-Eltze, Huber & Anders
+  (Nature Methods 2025). See CITATION.cff for references.
 benchmarker: "btraven <ben.uzh@proton.me>"
-
-# Benchmark configuration
 version: "0.1.0"
+api_version: "0.5.0"
 
-# The default software environment for this benchmark.
-# One of: apptainer, conda, envmodules.
 software_backend: "conda"
 
-# Available software environments
-
 software_environments:
-    conda_env:
-        name: nicely packaged environment
-        description: A more verbose description, for humans reading this
-        conda: envs/conda.yaml
-
-# Stages and modules for your benchmark
+  base:
+    name: base scientific env
+    description: scanpy/anndata + the omni_scfm shared library (CPU, no torch)
+    conda: envs/base.yml
+  omni_data:
+    name: omni-data download env
+    description: hapiq-backed dataset downloader
+    conda: envs/omni-data.yml
+  r:
+    name: R / Bioconductor env
+    description: runs the paper's R scripts verbatim (mean, …)
+    conda: envs/r.yml
 
 stages:
-  - id: datasets
+  # 1. Download raw data (reproducible, via the omni-data remote module).
+  - id: download
     outputs:
-        - id: data.matrix
-          path: "{dataset}.data.gz"
-        - id: data.true_labels
-          path: "{dataset}.gz"
+      - id: data.raw
+        path: "{dataset}.zip"
     modules:
-      - id: dataset_loader
-        name: "loads the benchmark datasets"
-        software_environment: "conda_env"
+      - id: adamson
+        name: "Adamson 2016 (GEARS-processed, Harvard Dataverse)"
+        software_environment: "omni_data"
         repository:
-          url: https://github.com/CHANGEME/data_loader
-          commit: 366c5a2
+          url: https://github.com/btraven00/omni-data
+          commit: fe4df0e  # fix/downloadsh-extensionless-naming (robust naming)
         parameters:
-            # A single parameter dict
-            - param1: "value"
-              param2: "other_value"
+          - uri: "https://dataverse.harvard.edu/api/access/datafile/6154417"
+            hash: "md5:0bde631bae60ee8c105991ff0e0d4a20"
 
-            # A combinatorial grid expansion
-            - param1: "value"
-              param2: ["1", "2", "3"]
+  # 2. Preprocess: extract the processed AnnData + gene names (seed-independent).
+  - id: preprocess
+    inputs:
+      - data.raw
+    outputs:
+      - id: data.h5ad
+        path: "{dataset}.h5ad"
+      - id: data.gene_names
+        path: "{dataset}.gene_names.json"
+    modules:
+      - id: gears_h5ad
+        name: "extract perturb_processed.h5ad + gene names"
+        software_environment: "base"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: preprocess
 
+  # 3. Split: GEARS 'simulation' train/val/test split per seed (paper: 1,2).
+  - id: split
+    inputs:
+      - data.h5ad
+    outputs:
+      - id: split.set2conditions
+        path: "{dataset}.set2conditions.json"
+    modules:
+      - id: simulation
+        name: "GEARS simulation split"
+        software_environment: "base"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: split
+        parameters:
+          - seed: [1, 2]
+
+  # 4. Ground truth: observed condition means (scoring target, seed-independent).
+  - id: ground_truth
+    inputs:
+      - data.h5ad
+    outputs:
+      - id: truth.predictions
+        path: "{dataset}.predictions.json.gz"
+      - id: truth.gene_names
+        path: "{dataset}.gene_names.json"
+      - id: truth.predictions_se
+        path: "{dataset}.predictions_se.json.gz"
+    modules:
+      - id: ground_truth
+        name: "observed condition means (scoring target)"
+        software_environment: "base"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: ground_truth
+
+  # 5. Predictive methods (per seed). Baselines first; DL methods later.
   - id: methods
     inputs:
-        - data.matrix
-        - data.true_labels
+      - data.h5ad
+      - split.set2conditions
     outputs:
-      - id: clustering.predicted
-        path: "{dataset}_predicted.labels.gz"
+      - id: method.predictions
+        path: "{dataset}.predictions.json.gz"
+      - id: method.gene_names
+        path: "{dataset}.gene_names.json"
     modules:
-      - id: cool_method_1
-        name: "the only method you will ever need"
-        software_environment: "conda_env"
+      - id: mean
+        name: "mean prediction baseline (verbatim run_mean_prediction.R)"
+        software_environment: "r"
         repository:
-          url: https://github.com/CHANGEME/my_method
-          commit: deadbeef
-        parameters:
-          - param1: "value"
-
-  - id: metrics
-    inputs:
-        - clustering.predicted
-        - data.true_labels
-    outputs:
-      - id: metrics.scores
-        path: "{dataset}.scores.gz"
-    modules:
-      - id: strict_metric_1
-        name: "a very well defined metric"
-        software_environment: "conda_env"
-        repository:
-          url: https://github.com/CHANGEME/the_right_metric
-          commit: c0ffee
-        parameters:
-          - foo: "bar"
+          url: "."
+          commit: HEAD
+          entrypoint: mean
