@@ -32,21 +32,37 @@ altair = "*"
 [feature.dashboard.tasks]
 dashboard = "streamlit run dashboard/app.py"   # pixi run dashboard
 
-# gears: GEARS (cell-gears) for the GO-filtered simulation split AND the GEARS
-# method (M3). CPU is fine for the split. GEARS pins Python 3.10.
+# gears: GEARS (cell-gears) for the GO-filtered split + the GEARS method.
+# Core deps via CONDA (conda-forge resolves the transitive closure reliably —
+# conda's pip silently drops pinned-but-also-conda packages like pandas/
+# typing_extensions). cell-gears (PyPI-only) is installed with pip --no-deps so
+# its over-strict == pins don't fight the conda-resolved versions. Versions
+# pinned to the paper's gears_env2.yml where it matters for the split
+# (cell-gears 0.1.2 — asserted by prepare_perturbation_data.py — + numpy 1.26).
+# CPU torch (conda-forge default on linux; no CUDA needed for the split).
 [feature.gears.dependencies]
 python = "3.10.*"
 pip = "*"
+pytorch = "2.3.*"
+pytorch_geometric = "2.5.*"
+numpy = "1.26.*"
+pandas = ">=2.2"
+scanpy = "1.10.*"
+anndata = ">=0.10"
+scikit-learn = ">=1.5"
+scipy = ">=1.11"
+networkx = ">=3"
+h5py = "*"
+tqdm = "*"
+dcor = "*"
+requests = "*"
+typing_extensions = "*"
+session-info = "*"
 
-# Pinned to the paper's gears_env2.yml for a bit-exact split + faithful GEARS method.
-# (prepare_perturbation_data.py asserts gears.version == '0.1.2'.)
-[feature.gears.pypi-dependencies]
-cell-gears = "==0.1.2"
-numpy = "==1.26.4"
-# CPU-only torch (split + CPU inference need no CUDA; avoids the ~2GB CUDA wheel).
-torch = { version = "==2.3.0", index = "https://download.pytorch.org/whl/cpu" }
-torch-geometric = "==2.5.3"
-scanpy = "==1.10.1"
+[feature.gears.tasks]
+# cell-gears is PyPI-only; --no-deps so it uses the conda-resolved versions.
+# Run after install (and OB's envs/gears.yml does the equivalent in its pip: block).
+gears-postinstall = "python -m pip install --no-deps cell-gears==0.1.2"
 
 # r: Bioconductor env to run the paper's R scripts verbatim (mean, lpm, ...).
 # Reads .h5ad via picklerick (native Rust->R, no basilisk/Python); zellkonverter
@@ -84,7 +100,8 @@ dashboard = { features = ["base", "dashboard"] }
 export-base = "pixi workspace export conda-environment --environment default envs/base.yml"
 export-omnidata = "pixi workspace export conda-environment --environment omnidata envs/omni-data.yml"
 export-r = "pixi workspace export conda-environment --environment r envs/r.yml"
-export-gears = "bash scripts/export_gears_env.sh"  # full pinned pip closure (not the minimal export)
+# (gears env is declarative conda + pip --no-deps cell-gears; envs/gears.yml is
+#  hand-maintained to mirror the gears feature — no export needed.)
 # Collect metrics for one run: `pixi run collect [OUT_DIR] [-o SCORES.parquet]`
 # (defaults to ./out -> ./out/scores.parquet). Pass another run's dir explicitly.
 collect = { cmd = "python -m omni_scfm.collect", env = { PYTHONPATH = "src" } }
