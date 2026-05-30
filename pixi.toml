@@ -40,10 +40,16 @@ torch = { version = "==2.3.0", index = "https://download.pytorch.org/whl/cpu" }
 torch-geometric = "==2.5.3"
 scanpy = "==1.10.1"
 
-# r: Bioconductor env to run the paper's R scripts verbatim (mean, collect, ...).
-# Mirrors run_mean_prediction.R's library() / :: calls; versions ~ renv.lock (R 4.4).
+# r: Bioconductor env to run the paper's R scripts verbatim (mean, lpm, ...).
+# Reads .h5ad via picklerick (native Rust->R, no basilisk/Python); zellkonverter
+# stays installed only so the scripts' `zellkonverter::readH5AD` resolves —
+# wrapper.R swaps its implementation to picklerick. picklerick needs r-base >=4.5.
+[feature.r]
+channels = ["https://prefix.dev/edge", "conda-forge", "bioconda"]
+
 [feature.r.dependencies]
-r-base = "4.4.*"
+r-base = ">=4.5,<4.6"
+r-picklerick = "*"
 bioconductor-genomeinfodbdata = "*"  # data pkg conda doesn't auto-pull for GenomeInfoDb
 bioconductor-singlecellexperiment = "*"
 bioconductor-glmgampoi = "*"
@@ -53,6 +59,9 @@ r-tidyverse = "*"
 r-argparser = "*"
 r-rjson = "*"
 r-tidylog = "*"
+r-irlba = "*"        # linear pretrained model (PCA embeddings)
+r-skimr = "*"        # lpm summary printout
+"r-data.table" = "*" # quoted: the dot is part of the package name, not a TOML table
 
 # --- environments (pixi solves each independently) --------------------------
 [environments]

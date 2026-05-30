@@ -1,11 +1,14 @@
 name: r
 channels:
+- https://prefix.dev/edge
 - conda-forge
 - bioconda
 - https://prefix.dev/almost-conductor
 - nodefaults
 dependencies:
-- r-base 4.4.*
+- r-base >=4.5,<4.6
+- r-picklerick *
+- bioconductor-genomeinfodbdata *
 - bioconductor-singlecellexperiment *
 - bioconductor-glmgampoi *
 - bioconductor-zellkonverter *
@@ -14,4 +17,7 @@ dependencies:
 - r-argparser *
 - r-rjson *
 - r-tidylog *
+- r-irlba *
+- r-skimr *
+- r-data.table *
 - python >=3.10,<3.13

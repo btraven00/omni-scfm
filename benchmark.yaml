@@ -121,3 +121,10 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: mean
+      - id: lpm_selftrained
+        name: "linear pretrained model, self-trained (verbatim run_linear_pretrained_model.R)"
+        software_environment: "r"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: lpm

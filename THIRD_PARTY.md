@@ -18,10 +18,26 @@ which license.
 - **Citing:** Roohani, Y., Huang, K. & Leskovec, J. *Predicting transcriptional
   outcomes of novel multigene perturbations with GEARS.* Nat Biotechnol (2023).
 
-## Reference paper code (planned: git submodule)
+## Reference paper code (git submodule)
 
 - **What:** baseline/method scripts reused verbatim where possible.
-- **Where (here):** `vendor/paper/` (git submodule, to be added).
+- **Where (here):** `vendor/paper/` (git submodule, pinned).
 - **Source:** https://github.com/const-ae/linear_perturbation_prediction-Paper
 - **License:** MIT — Copyright (c) 2024 Constantin Ahlmann-Eltze.
 - See also `CITATION.cff` (`references:`).
+
+## GEARS
+
+- **What:** `cell-gears` provides the GO-filtered simulation split (run via the
+  vendored `prepare_perturbation_data.py`) and, later, the GEARS method.
+- **Where:** `gears` conda env (`envs/gears.yml`), pinned to the paper's versions.
+- **Source:** https://github.com/snap-stanford/GEARS — MIT.
+
+## picklerick (SCX)
+
+- **What:** native Rust→R reader for `.h5ad`; the R method scripts read expression
+  via `picklerick::read_h5ad` instead of zellkonverter/basilisk (no Python env).
+  `wrapper.R` swaps `zellkonverter::readH5AD` to it. Validated: results are
+  identical to the basilisk path to ~1e-6.
+- **Where:** `r-picklerick` from the `https://prefix.dev/edge` channel (`envs/r.yml`).
+- **Source:** https://github.com/btraven00/scx — GPL-3.0-only.
