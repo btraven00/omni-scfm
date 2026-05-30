@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this benchmark, please cite it as below."
+type: software
+title: "omni-scfm"
+authors:
+  - family-names: "btraven"
+    given-names: ""
+    email: "ben.uzh@proton.me"
+version: "0.1.0"
+date-released: "2026-05-30"
+url: "https://github.com/CHANGE_ME/omni-scfm"
+abstract: "Benchmarking deep learning models for perturbation prediction"
+license: MIT
+keywords:
+  - benchmark
+  - bioinformatics
+  - omnibenchmark

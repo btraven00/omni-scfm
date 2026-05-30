@@ -1,0 +1,78 @@
+name: omni-scfm
+id: omni_scfm
+description: Benchmarking deep learning models for perturbation prediction
+benchmarker: "btraven <ben.uzh@proton.me>"
+
+# Benchmark configuration
+version: "0.1.0"
+
+# The default software environment for this benchmark.
+# One of: apptainer, conda, envmodules.
+software_backend: "conda"
+
+# Available software environments
+
+software_environments:
+    conda_env:
+        name: nicely packaged environment
+        description: A more verbose description, for humans reading this
+        conda: envs/conda.yaml
+
+# Stages and modules for your benchmark
+
+stages:
+  - id: datasets
+    outputs:
+        - id: data.matrix
+          path: "{dataset}.data.gz"
+        - id: data.true_labels
+          path: "{dataset}.gz"
+    modules:
+      - id: dataset_loader
+        name: "loads the benchmark datasets"
+        software_environment: "conda_env"
+        repository:
+          url: https://github.com/CHANGEME/data_loader
+          commit: 366c5a2
+        parameters:
+            # A single parameter dict
+            - param1: "value"
+              param2: "other_value"
+
+            # A combinatorial grid expansion
+            - param1: "value"
+              param2: ["1", "2", "3"]
+
+  - id: methods
+    inputs:
+        - data.matrix
+        - data.true_labels
+    outputs:
+      - id: clustering.predicted
+        path: "{dataset}_predicted.labels.gz"
+    modules:
+      - id: cool_method_1
+        name: "the only method you will ever need"
+        software_environment: "conda_env"
+        repository:
+          url: https://github.com/CHANGEME/my_method
+          commit: deadbeef
+        parameters:
+          - param1: "value"
+
+  - id: metrics
+    inputs:
+        - clustering.predicted
+        - data.true_labels
+    outputs:
+      - id: metrics.scores
+        path: "{dataset}.scores.gz"
+    modules:
+      - id: strict_metric_1
+        name: "a very well defined metric"
+        software_environment: "conda_env"
+        repository:
+          url: https://github.com/CHANGEME/the_right_metric
+          commit: c0ffee
+        parameters:
+          - foo: "bar"
