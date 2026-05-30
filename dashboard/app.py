@@ -62,21 +62,32 @@ st.dataframe(
 
 # --- per-method distribution (the paper's main panel) -----------------------
 st.header(f"{mlabel} on held-out ({split}) perturbations")
-sub = df[df["split"] == split].dropna(subset=[metric])
+sub = df[df["split"] == split].dropna(subset=[metric]).copy()
 order = lb.sort_values("median", ascending=False)["method"].tolist()
+n_methods, n_datasets = sub["method"].nunique(), sub["dataset"].nunique()
+
+x = alt.X("method:N", sort=order, title=None, axis=alt.Axis(labelAngle=-30, labelFontSize=12))
+y = alt.Y(f"{metric}:Q", title=mlabel, scale=alt.Scale(zero=False))
 base = alt.Chart(sub)
-box = base.mark_boxplot(opacity=0.4, color="#bbb").encode(
-    x=alt.X("method:N", sort=order, title=None),
-    y=alt.Y(f"{metric}:Q", title=mlabel),
-)
-pts = base.mark_circle(size=35, opacity=0.6).encode(
-    x=alt.X("method:N", sort=order),
-    y=f"{metric}:Q",
-    color=alt.Color("method:N", legend=None),
+box = base.mark_boxplot(size=40, opacity=0.35, color="#aaa", outliers=False).encode(x=x, y=y)
+pts = base.mark_circle(size=70, opacity=0.55).encode(
+    x=x,
+    xOffset="jitter:Q",                       # spread points so they don't stack
+    y=y,
+    color=alt.Color("method:N", legend=None, scale=alt.Scale(scheme="tableau10")),
     tooltip=["method", "perturbation", alt.Tooltip(f"{metric}:Q", format=".3f"), "seed"],
-)
-st.altair_chart((box + pts).facet(column=alt.Column("dataset:N")).resolve_scale(y="shared"),
-                use_container_width=True)
+).transform_calculate(jitter="(random() - 0.5) * 0.6")
+# dashed line at the best method's mean (paper aesthetic)
+rule = base.mark_rule(color="#444", strokeDash=[4, 4]).encode(
+    y=f"mean({metric}):Q"
+).transform_filter(alt.FieldEqualPredicate(field="method", equal=order[0]))
+
+chart = (box + pts + rule).properties(height=460)
+if n_datasets > 1:
+    chart = chart.properties(width=max(220, 90 * n_methods)).facet(column="dataset:N")
+    st.altair_chart(chart.resolve_scale(y="shared"), use_container_width=False)
+else:
+    st.altair_chart(chart, use_container_width=True)   # stretch full width
 
 # --- reproduction vs published ---------------------------------------------
 st.header("Reproduction vs published")
