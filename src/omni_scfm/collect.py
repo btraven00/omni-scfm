@@ -27,6 +27,15 @@ from .metrics import as_gene_map, condition_metrics, normalize_condition, top_ex
 
 _PRED_SUFFIXES = (".predictions.json.gz", ".predictions.json")
 
+# Methods only meaningful for multi-gene (double) perturbations: their prediction
+# for a single-gene perturbation is just that single's observed mean (leakage).
+DOUBLE_ONLY_METHODS = {"additive"}
+
+
+def _is_single(condition: str) -> bool:
+    """A single-gene (or control) perturbation, e.g. 'GENE+ctrl' or 'ctrl'."""
+    return "ctrl" in condition.split("+")
+
 
 def _read_json(path: Path):
     path = Path(path)
@@ -104,9 +113,12 @@ def collect_scores(out_dir: str | Path, top_n: int = 1000) -> pd.DataFrame:
         baseline = observed["ctrl"]
         top_genes = top_expressed_genes(baseline, top_n)
         labels = split_labels.get((ds, seed), {})
+        double_only = method in DOUBLE_ONLY_METHODS
         for cond, pred_map in _load_predmap(p).items():
             if cond not in observed:
                 continue
+            if double_only and _is_single(cond):
+                continue  # additive on a single-pert is leakage (== observed mean)
             m = condition_metrics(pred_map, observed[cond], baseline, top_genes)
             rows.append(
                 {"dataset": ds, "seed": seed, "method": method,

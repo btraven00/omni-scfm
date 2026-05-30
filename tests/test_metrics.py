@@ -141,3 +141,32 @@ def test_collect_reads_gzipped_predictions(tmp_path):
     a = df[df["perturbation"] == "A+ctrl"].iloc[0]
     assert a["method"] == "mean" and a["split"] == "test"
     assert a["pearson_delta"] == pytest.approx(1.0)
+
+
+def test_additive_scored_on_doubles_only(tmp_path):
+    """A DOUBLE_ONLY method (additive) is scored on doubles, never on singles."""
+    genes = ["g0", "g1", "g2", "g3"]
+    base = tmp_path / "download/norman/.h/preprocess/gears_h5ad/.default"
+
+    gt = base / "ground_truth/ground_truth/.default"
+    _write(gt / "norman.predictions.json",
+           {"ctrl": [0, 0, 0, 0], "A+ctrl": [1, 2, 3, 4],
+            "B+ctrl": [4, 3, 2, 1], "A+B": [5, 5, 5, 5]})
+    _write(gt / "norman.gene_names.json", genes)
+
+    sp = base / "split/simulation/.s1"
+    _write(sp / "parameters.json", {"seed": 1})
+    _write(sp / "norman.set2conditions.json",
+           {"train": ["ctrl", "A+ctrl", "B+ctrl"], "val": [], "test": ["A+B"]})
+
+    # additive predicts every condition, incl. singles (which are leakage).
+    add = sp / "methods/additive/.default"
+    _write(add / "norman.predictions.json",
+           {"ctrl": [0, 0, 0, 0], "A+ctrl": [1, 2, 3, 4],
+            "B+ctrl": [4, 3, 2, 1], "A+B": [5, 5, 5, 5]})
+    _write(add / "norman.gene_names.json", genes)
+
+    df = collect_scores(tmp_path)
+    add_df = df[df["method"] == "additive"]
+    # only the double is scored; singles + ctrl are dropped.
+    assert set(add_df["perturbation"]) == {"A+B"}

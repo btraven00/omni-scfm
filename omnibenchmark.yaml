@@ -9,3 +9,4 @@ entrypoints:
   ground_truth: modules/methods/ground_truth/run.py
   mean: modules/methods/mean/run.sh
   lpm: modules/methods/lpm/run.sh
+  additive: modules/methods/additive/run.sh

@@ -38,6 +38,7 @@ stages:
       - id: adamson
         name: "Adamson 2016 (GEARS-processed, Harvard Dataverse)"
         software_environment: "omni_data"
+        exclude: ["additive"]   # single-pert: additive is degenerate (leakage)
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e  # fix/downloadsh-extensionless-naming (robust naming)
@@ -122,6 +123,7 @@ stages:
     inputs:
       - data.h5ad
       - split.set2conditions
+      - data.go            # used by additive (GEARS); ignored by mean/lpm
     outputs:
       - id: method.predictions
         path: "{dataset}.predictions.json.gz"
@@ -142,3 +144,10 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: lpm
+      - id: additive
+        name: "additive model (double-pert linear baseline, verbatim run_additive_model.py)"
+        software_environment: "gears"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: additive
