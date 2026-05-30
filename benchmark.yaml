@@ -44,6 +44,15 @@ stages:
         parameters:
           - uri: "https://dataverse.harvard.edu/api/access/datafile/6154417"
             hash: "md5:0bde631bae60ee8c105991ff0e0d4a20"
+      - id: norman
+        name: "Norman 2019 (GEARS-processed, Harvard Dataverse) — double perturbations"
+        software_environment: "omni_data"
+        repository:
+          url: https://github.com/btraven00/omni-data
+          commit: fe4df0e
+        parameters:
+          - uri: "https://dataverse.harvard.edu/api/access/datafile/6154020"
+            hash: "md5:cdc41d6050e619c37fd9dd44d440e2b4"
 
   # 2. Preprocess: extract the processed AnnData + gene names (seed-independent).
   - id: preprocess

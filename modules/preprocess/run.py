@@ -30,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import anndata as ad  # noqa: E402
+import pandas as pd  # noqa: E402
 
 from omni_scfm.cli import dataset_name, parse_ob_args, require  # noqa: E402
 
@@ -74,6 +75,13 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         h5ad = _find_h5ad(raw, Path(tmp))
         adata = ad.read_h5ad(h5ad)
+
+        # Canonicalize condition names (sort genes within each), matching the
+        # paper's normalize_condition_names, so double-pert names are order-
+        # independent (A+B == B+A) and consistent across split / ground_truth /
+        # methods. No-op for single-pert datasets (gene symbols sort before 'ctrl').
+        cond = adata.obs["condition"].astype(str)
+        adata.obs["condition"] = pd.Categorical(["+".join(sorted(c.split("+"))) for c in cond])
 
         gene_names = (
             adata.var["gene_name"].astype(str).tolist()

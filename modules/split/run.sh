@@ -39,8 +39,10 @@ ds=$(basename "$data_h5ad"); ds="${ds%%.*}"
 wd=$(mktemp -d); trap 'rm -rf "$wd"' EXIT
 mkdir -p "$wd/data/gears_pert_data/$ds" "$wd/results"
 # Assemble the GEARS pert-data folder so load(<ds>) uses our data (no re-download):
-# the processed h5ad as perturb_processed.h5ad + the dataset's go.csv.
-ln -sf "$(realpath "$data_h5ad")" "$wd/data/gears_pert_data/$ds/perturb_processed.h5ad"
+# the processed h5ad as perturb_processed.h5ad + the dataset's go.csv. COPY (not
+# symlink): the norman branch normalizes condition names and rewrites this file,
+# which through a symlink would corrupt the upstream preprocess output.
+cp "$(realpath "$data_h5ad")" "$wd/data/gears_pert_data/$ds/perturb_processed.h5ad"
 [[ -n $data_go ]] && cp "$data_go" "$wd/data/gears_pert_data/$ds/go.csv"
 # Optional: reuse a cached gene2go / pert-gene graph to skip the ~9MB download.
 # TODO: make this a proper benchmark stage — a `gears_godata` download module

@@ -13,6 +13,7 @@
 # The vendored script path arrives via $OMNI_VENDORED_SCRIPT so that the script's
 # own --flags stay the only entries on commandArgs() for argparser.
 
+# TODO -- we can get rid of all the basilisk/zellkonverter stuff now no?
 .orig_setenv <- base::Sys.setenv
 assign("Sys.setenv", function(...) {
   a <- list(...)
