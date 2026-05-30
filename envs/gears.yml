@@ -5,9 +5,9 @@ channels:
 dependencies:
 - python 3.10.*
 - pip
+- typing_extensions
 - pip:
-  # CPU torch index (avoids the CUDA wheel). Full pinned closure from the
-  # pixi gears env so conda's pip build matches it (no missing transitive deps).
+  # CPU torch index (avoids the ~2GB CUDA wheel).
   - --extra-index-url https://download.pytorch.org/whl/cpu
   - aiobotocore==2.21.1
   - aiohappyeyeballs==2.6.1
@@ -81,7 +81,6 @@ dependencies:
   - torch==2.3.0+cpu
   - torch_geometric==2.5.3
   - tqdm==4.67.3
-  - typing_extensions==4.13.2
   - tzdata==2025.2
   - umap-learn==0.5.12
   - urllib3==2.7.0

@@ -16,11 +16,14 @@ cd "$(git rev-parse --show-toplevel)"
   echo "dependencies:"
   echo "- python 3.10.*"
   echo "- pip"
+  # conda's pip silently skips typing_extensions (treats it as provided), which
+  # breaks anndata/exceptiongroup at import. Install it via conda instead.
+  echo "- typing_extensions"
   echo "- pip:"
   echo "  # CPU torch index (avoids the ~2GB CUDA wheel)."
   echo "  - --extra-index-url https://download.pytorch.org/whl/cpu"
   pixi run -e gears pip freeze \
-    | grep -E '==' | grep -v '@ file' | grep -vE '^(pip|setuptools|wheel)==' \
+    | grep -E '==' | grep -v '@ file' | grep -vE '^(pip|setuptools|wheel|typing[_-]extensions)==' \
     | sed 's/^/  - /'
 } > envs/gears.yml
 
