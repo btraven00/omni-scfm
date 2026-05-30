@@ -56,3 +56,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# pixi environments (large; envs/*.yml are the committed specs)
+.pixi/

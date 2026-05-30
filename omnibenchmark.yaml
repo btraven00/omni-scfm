@@ -5,6 +5,6 @@
 # so all modules live in this single repo instead of one repo per module.
 entrypoints:
   preprocess: modules/preprocess/run.py
-  split: modules/split/run.py
+  split: modules/split/run.sh
   ground_truth: modules/methods/ground_truth/run.py
   mean: modules/methods/mean/run.sh

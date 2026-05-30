@@ -17,11 +17,28 @@ anndata = "*"
 pandas = "*"
 pyarrow = "*"
 pytest = "*"
+openpyxl = "*"  # read the paper's source_data/*.xlsx for the reproduction check
 
 # omnidata: the data-download env (hapiq from the almost-conductor channel)
 [feature.omnidata.dependencies]
 hapiq = "*"
 bash = "*"
+
+# gears: GEARS (cell-gears) for the GO-filtered simulation split AND the GEARS
+# method (M3). CPU is fine for the split. GEARS pins Python 3.10.
+[feature.gears.dependencies]
+python = "3.10.*"
+pip = "*"
+
+# Pinned to the paper's gears_env2.yml for a bit-exact split + faithful GEARS method.
+# (prepare_perturbation_data.py asserts gears.version == '0.1.2'.)
+[feature.gears.pypi-dependencies]
+cell-gears = "==0.1.2"
+numpy = "==1.26.4"
+# CPU-only torch (split + CPU inference need no CUDA; avoids the ~2GB CUDA wheel).
+torch = { version = "==2.3.0", index = "https://download.pytorch.org/whl/cpu" }
+torch-geometric = "==2.5.3"
+scanpy = "==1.10.1"
 
 # r: Bioconductor env to run the paper's R scripts verbatim (mean, collect, ...).
 # Mirrors run_mean_prediction.R's library() / :: calls; versions ~ renv.lock (R 4.4).
@@ -42,12 +59,14 @@ r-tidylog = "*"
 default = { features = ["base"] }
 omnidata = { features = ["omnidata"] }
 r = { features = ["r"] }
+gears = { features = ["gears"] }
 
 # --- env export tasks: pixi -> envs/*.yml that benchmark.yaml references -----
 [tasks]
 export-base = "pixi workspace export conda-environment --environment default envs/base.yml"
 export-omnidata = "pixi workspace export conda-environment --environment omnidata envs/omni-data.yml"
 export-r = "pixi workspace export conda-environment --environment r envs/r.yml"
+export-gears = "pixi workspace export conda-environment --environment gears envs/gears.yml"
 # Collect metrics for one run: `pixi run collect [OUT_DIR] [-o SCORES.parquet]`
 # (defaults to ./out -> ./out/scores.parquet). Pass another run's dir explicitly.
 collect = { cmd = "python -m omni_scfm.collect", env = { PYTHONPATH = "src" } }

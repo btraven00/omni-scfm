@@ -1,0 +1,20 @@
+name: gears
+channels:
+- conda-forge
+- bioconda
+- https://prefix.dev/almost-conductor
+- nodefaults
+dependencies:
+- python 3.10.*
+- python >=3.10,<3.13
+- pip *
+- pip
+- pip:
+  # CPU torch (the split + CPU inference need no CUDA; avoids the ~2GB CUDA wheel).
+  # NOTE: re-add this line + the +cpu pin if regenerating via `pixi run export-gears`.
+  - --extra-index-url https://download.pytorch.org/whl/cpu
+  - cell-gears==0.1.2
+  - numpy==1.26.4
+  - torch==2.3.0+cpu
+  - torch-geometric==2.5.3
+  - scanpy==1.10.1

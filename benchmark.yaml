@@ -23,6 +23,10 @@ software_environments:
     name: R / Bioconductor env
     description: runs the paper's R scripts verbatim (mean, …)
     conda: envs/r.yml
+  gears:
+    name: GEARS env (paper-pinned)
+    description: cell-gears 0.1.2 etc.; GO-filtered split + the GEARS method
+    conda: envs/gears.yml
 
 stages:
   # 1. Download raw data (reproducible, via the omni-data remote module).
@@ -59,17 +63,19 @@ stages:
           commit: HEAD
           entrypoint: preprocess
 
-  # 3. Split: GEARS 'simulation' train/val/test split per seed (paper: 1,2).
+  # 3. Split: GEARS-faithful train/val/test split per seed (paper: 1,2). Runs the
+  #    paper's prepare_perturbation_data.py verbatim in the GEARS env so the GO
+  #    filtering matches exactly (see THIRD_PARTY.md / docs).
   - id: split
     inputs:
-      - data.h5ad
+      - data.raw
     outputs:
       - id: split.set2conditions
         path: "{dataset}.set2conditions.json"
     modules:
       - id: simulation
-        name: "GEARS simulation split"
-        software_environment: "base"
+        name: "GEARS split (verbatim prepare_perturbation_data.py)"
+        software_environment: "gears"
         repository:
           url: "."
           commit: HEAD
