@@ -24,6 +24,14 @@ openpyxl = "*"  # read the paper's source_data/*.xlsx for the reproduction check
 hapiq = "*"
 bash = "*"
 
+# dashboard: Streamlit results explorer (stlite-compatible: pandas + altair).
+[feature.dashboard.dependencies]
+streamlit = "*"
+altair = "*"
+
+[feature.dashboard.tasks]
+dashboard = "streamlit run dashboard/app.py"   # pixi run dashboard
+
 # gears: GEARS (cell-gears) for the GO-filtered simulation split AND the GEARS
 # method (M3). CPU is fine for the split. GEARS pins Python 3.10.
 [feature.gears.dependencies]
@@ -69,6 +77,7 @@ default = { features = ["base"] }
 omnidata = { features = ["omnidata"] }
 r = { features = ["r"] }
 gears = { features = ["gears"] }
+dashboard = { features = ["base", "dashboard"] }
 
 # --- env export tasks: pixi -> envs/*.yml that benchmark.yaml references -----
 [tasks]
