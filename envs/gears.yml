@@ -4,8 +4,10 @@ channels:
 - bioconda
 # Core deps via conda (conda-forge resolves the transitive closure; conda's pip
 # silently drops pinned-but-also-conda packages like pandas/typing_extensions).
-# cell-gears is PyPI-only and installed with --no-deps so its over-strict == pins
-# don't fight conda's versions. Mirrors the `gears` feature in pixi.toml.
+# cell-gears is PyPI-only; its 0.1.2 deps are unpinned and already provided by
+# conda above, so pip just installs the wheel (no PyPI torch pull, no conflict).
+# Mirrors the `gears` feature in pixi.toml. (conda's pip rejects `--no-deps` in
+# the requirements list, hence relying on the loose deps being pre-satisfied.)
 dependencies:
 - python 3.10.*
 - pip
@@ -25,5 +27,4 @@ dependencies:
 - typing_extensions
 - session-info
 - pip:
-  - --no-deps
   - cell-gears==0.1.2

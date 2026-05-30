@@ -60,9 +60,9 @@ typing_extensions = "*"
 session-info = "*"
 
 [feature.gears.tasks]
-# cell-gears is PyPI-only; --no-deps so it uses the conda-resolved versions.
-# Run after install (and OB's envs/gears.yml does the equivalent in its pip: block).
-gears-postinstall = "python -m pip install --no-deps cell-gears==0.1.2"
+# cell-gears is PyPI-only; its loose deps are already provided by the conda deps
+# above, so plain pip install just adds the wheel (matches OB's envs/gears.yml).
+gears-postinstall = "python -m pip install cell-gears==0.1.2"
 
 # r: Bioconductor env to run the paper's R scripts verbatim (mean, lpm, ...).
 # Reads .h5ad via picklerick (native Rust->R, no basilisk/Python); zellkonverter
