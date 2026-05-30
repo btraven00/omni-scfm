@@ -43,6 +43,10 @@ mkdir -p "$wd/data/gears_pert_data/$ds" "$wd/results"
 ln -sf "$(realpath "$data_h5ad")" "$wd/data/gears_pert_data/$ds/perturb_processed.h5ad"
 [[ -n $data_go ]] && cp "$data_go" "$wd/data/gears_pert_data/$ds/go.csv"
 # Optional: reuse a cached gene2go / pert-gene graph to skip the ~9MB download.
+# TODO: make this a proper benchmark stage — a `gears_godata` download module
+# (omni-data-style) that fetches gene2go_all.pkl + essential_all_data_pert_genes.pkl
+# once, declared as an input here (and to the GEARS method) instead of GEARS
+# re-downloading them on every split/seed run.
 if [[ -n "${OMNI_GEARS_CACHE:-}" && -d "$OMNI_GEARS_CACHE" ]]; then
   cp -n "$OMNI_GEARS_CACHE"/*.pkl "$wd/data/gears_pert_data/" 2>/dev/null || true
 fi
