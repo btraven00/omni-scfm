@@ -35,6 +35,23 @@ def leaderboard(df: pd.DataFrame, split: str = "test", metric: str = "pearson_de
     return out
 
 
+def method_comparison(df: pd.DataFrame, method_x: str, method_y: str,
+                      metric: str = "pearson_delta", split: str = "test") -> pd.DataFrame:
+    """Pair two methods' per-perturbation metric for a scatter (x vs y).
+
+    Returns rows ``dataset, seed, perturbation, x, y, winner`` for perturbations
+    both methods scored on the given split. ``winner`` is the method with the
+    higher metric (the better one for pearson/pearson_delta).
+    """
+    sub = df[df["split"] == split].dropna(subset=[metric])
+    keys = ["dataset", "seed", "perturbation"]
+    x = sub[sub["method"] == method_x][keys + [metric]].rename(columns={metric: "x"})
+    y = sub[sub["method"] == method_y][keys + [metric]].rename(columns={metric: "y"})
+    m = x.merge(y, on=keys, how="inner")
+    m["winner"] = (m["y"] > m["x"]).map({True: method_y, False: method_x})
+    return m
+
+
 def reproduction(scores: pd.DataFrame, published: pd.DataFrame,
                  metric: str = "pearson_delta") -> pd.DataFrame:
     """Join our scores to the paper's published numbers per perturbation.

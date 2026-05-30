@@ -24,6 +24,7 @@ from omni_scfm.dashboard_data import (  # noqa: E402
     METRIC_LABELS,
     leaderboard,
     load_scores,
+    method_comparison,
     reproduction,
     reproduction_summary,
 )
@@ -88,6 +89,32 @@ if n_datasets > 1:
     st.altair_chart(chart.resolve_scale(y="shared"), use_container_width=False)
 else:
     st.altair_chart(chart, use_container_width=True)   # stretch full width
+
+# --- method-vs-method per-perturbation comparison ---------------------------
+if n_methods >= 2:
+    st.header("Method comparison (per perturbation)")
+    methods = sorted(sub["method"].unique())
+    c1, c2 = st.columns(2)
+    mx = c1.selectbox("x-axis method", methods, index=0)
+    my = c2.selectbox("y-axis method", methods, index=1)
+    comp = method_comparison(df, mx, my, metric=metric, split=split)
+    if comp.empty:
+        st.info("No shared perturbations between the two methods on this split.")
+    else:
+        wins = comp["winner"].value_counts().to_dict()
+        st.caption(f"{my} better on {wins.get(my, 0)} / {len(comp)} perturbations "
+                   f"(diagonal = tie; above = {my} wins).")
+        lim = pd.concat([comp["x"], comp["y"]])
+        dline = pd.DataFrame({"v": [lim.min(), lim.max()]})
+        sc = alt.Chart(comp).mark_circle(size=70, opacity=0.6).encode(
+            x=alt.X("x:Q", title=f"{mlabel} — {mx}", scale=alt.Scale(zero=False)),
+            y=alt.Y("y:Q", title=f"{mlabel} — {my}", scale=alt.Scale(zero=False)),
+            color=alt.Color("winner:N", title="better"),
+            tooltip=["perturbation", "seed",
+                     alt.Tooltip("x:Q", format=".3f"), alt.Tooltip("y:Q", format=".3f")],
+        )
+        diag = alt.Chart(dline).mark_line(color="#999", strokeDash=[4, 4]).encode(x="v:Q", y="v:Q")
+        st.altair_chart((diag + sc).properties(height=460).interactive(), use_container_width=True)
 
 # --- reproduction vs published ---------------------------------------------
 st.header("Reproduction vs published")

@@ -5,7 +5,12 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from omni_scfm.dashboard_data import leaderboard, reproduction, reproduction_summary
+from omni_scfm.dashboard_data import (
+    leaderboard,
+    method_comparison,
+    reproduction,
+    reproduction_summary,
+)
 
 
 def _scores():
@@ -47,6 +52,15 @@ def test_reproduction_join_and_summary():
     row = summ.iloc[0]
     assert row["method"] == "mean" and row["n"] == 2
     assert row["max_abs_diff"] < 1e-6
+
+
+def test_method_comparison_pairs_and_picks_winner():
+    comp = method_comparison(_scores(), "mean", "lpm_selftrained", split="test")
+    # only A+ctrl is scored by both methods on the test split
+    assert list(comp["perturbation"]) == ["A+ctrl"]
+    row = comp.iloc[0]
+    assert row["x"] == 0.8 and row["y"] == 0.9
+    assert row["winner"] == "lpm_selftrained"   # 0.9 > 0.8
 
 
 def test_reproduction_empty_when_no_overlap():
