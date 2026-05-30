@@ -24,7 +24,9 @@ from omni_scfm.dashboard_data import (  # noqa: E402
     METRIC_LABELS,
     leaderboard,
     load_scores,
+    hardest_table,
     method_comparison,
+    per_perturbation,
     reproduction,
     reproduction_summary,
 )
@@ -89,6 +91,32 @@ if n_datasets > 1:
     st.altair_chart(chart.resolve_scale(y="shared"), use_container_width=False)
 else:
     st.altair_chart(chart, use_container_width=True)   # stretch full width
+
+# --- per-perturbation difficulty heatmap + hardest table --------------------
+st.header("Per-perturbation difficulty")
+pp = per_perturbation(df, split=split, metric=metric)
+if pp.empty:
+    st.info("No scored perturbations on this split.")
+else:
+    pert_order = pp.groupby("perturbation")[metric].mean().sort_values().index.tolist()
+    show_labels = len(pert_order) <= 40   # hide x labels when there are many (Norman)
+    heat = alt.Chart(pp).mark_rect().encode(
+        x=alt.X("perturbation:N", sort=pert_order, title="perturbation (hardest → easiest)",
+                axis=alt.Axis(labels=show_labels, labelAngle=-45, ticks=show_labels)),
+        y=alt.Y("method:N", title=None),
+        color=alt.Color(f"{metric}:Q", title=mlabel,
+                        scale=alt.Scale(scheme="redyellowgreen", domainMid=0)),
+        tooltip=["dataset", "perturbation", "method", alt.Tooltip(f"{metric}:Q", format=".3f")],
+    ).properties(height=24 * pp["method"].nunique() + 20)
+    if pp["dataset"].nunique() > 1:
+        heat = heat.facet(row="dataset:N")
+    st.altair_chart(heat, use_container_width=True)
+
+    st.subheader("Hardest perturbations")
+    ht = hardest_table(pp, metric=metric)
+    numcols = [c for c in ht.columns if c not in ("dataset", "perturbation")]
+    st.dataframe(ht.style.format({c: "{:.3f}" for c in numcols}),
+                 use_container_width=True, height=360)
 
 # --- method-vs-method per-perturbation comparison ---------------------------
 if n_methods >= 2:

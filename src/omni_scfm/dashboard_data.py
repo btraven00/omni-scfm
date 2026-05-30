@@ -35,6 +35,24 @@ def leaderboard(df: pd.DataFrame, split: str = "test", metric: str = "pearson_de
     return out
 
 
+def per_perturbation(df: pd.DataFrame, split: str = "test",
+                     metric: str = "pearson_delta") -> pd.DataFrame:
+    """Per (dataset, method, perturbation) metric, averaged across seeds."""
+    sub = df[df["split"] == split].dropna(subset=[metric])
+    return (
+        sub.groupby(["dataset", "method", "perturbation"])[metric]
+        .mean().reset_index()
+    )
+
+
+def hardest_table(per_pert: pd.DataFrame, metric: str = "pearson_delta") -> pd.DataFrame:
+    """Wide (dataset, perturbation) x method table + row mean, hardest first."""
+    wide = per_pert.pivot_table(index=["dataset", "perturbation"],
+                                columns="method", values=metric)
+    wide["mean"] = wide.mean(axis=1)
+    return wide.sort_values("mean").reset_index()
+
+
 def method_comparison(df: pd.DataFrame, method_x: str, method_y: str,
                       metric: str = "pearson_delta", split: str = "test") -> pd.DataFrame:
     """Pair two methods' per-perturbation metric for a scatter (x vs y).

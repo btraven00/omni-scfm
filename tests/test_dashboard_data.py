@@ -6,8 +6,10 @@ import pandas as pd
 import pytest
 
 from omni_scfm.dashboard_data import (
+    hardest_table,
     leaderboard,
     method_comparison,
+    per_perturbation,
     reproduction,
     reproduction_summary,
 )
@@ -52,6 +54,24 @@ def test_reproduction_join_and_summary():
     row = summ.iloc[0]
     assert row["method"] == "mean" and row["n"] == 2
     assert row["max_abs_diff"] < 1e-6
+
+
+def test_per_perturbation_averages_seeds():
+    df = _scores().copy()
+    # add a seed-2 row for mean/A+ctrl so the average is exercised
+    extra = df[(df.method == "mean") & (df.perturbation == "A+ctrl")].copy()
+    extra["seed"] = 2
+    extra["pearson_delta"] = 0.6
+    pp = per_perturbation(pd.concat([df, extra], ignore_index=True), split="test")
+    a = pp[(pp.method == "mean") & (pp.perturbation == "A+ctrl")].iloc[0]
+    assert a["pearson_delta"] == pytest.approx(0.7)   # mean(0.8, 0.6)
+
+
+def test_hardest_table_sorted_ascending_with_mean():
+    pp = per_perturbation(_scores(), split="test")
+    ht = hardest_table(pp)
+    assert list(ht["mean"]) == sorted(ht["mean"])     # hardest (lowest) first
+    assert "mean" in ht.columns and "mean" in set(ht.columns) - {"dataset", "perturbation"}
 
 
 def test_method_comparison_pairs_and_picks_winner():
