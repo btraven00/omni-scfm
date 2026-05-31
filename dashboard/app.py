@@ -22,7 +22,9 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from omni_scfm.dashboard_data import (  # noqa: E402
     METRIC_LABELS,
+    add_swarm_offsets,
     leaderboard,
+    load_scatter,
     load_scores,
     hardest_table,
     method_comparison,
@@ -33,6 +35,7 @@ from omni_scfm.dashboard_data import (  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_SCORES = REPO / "out" / "scores.parquet"
+DEFAULT_SCATTER = REPO / "out" / "scatter.parquet"
 DEFAULT_PUBLISHED = REPO / "scratch" / "published" / "published_single.csv"
 
 st.set_page_config(page_title="omni-scfm", layout="wide")
@@ -170,6 +173,94 @@ else:
             numcols = [c for c in ht.columns if c != "perturbation"]
             st.dataframe(ht.style.format({c: "{:.3f}" for c in numcols}),
                          use_container_width=True, height=360)
+
+# --- paper figure: L2 beeswarm + linked predicted-vs-observed scatter grid --
+# Reproduces the paper's double-perturbation figure: (a) a beeswarm of L2 error
+# per method, (b) per-method predicted-Δ vs observed-Δ scatter for one example
+# perturbation. Pick the example in the selectbox -> it's highlighted (orange) in
+# the beeswarm and drives the scatter grid.
+st.header("Double-perturbation prediction error")
+scatter_path = st.sidebar.text_input("scatter.parquet", str(DEFAULT_SCATTER))
+scatter_df = load_scatter(scatter_path) if Path(scatter_path).exists() else None
+ppl2 = per_perturbation(df, split="test", metric="l2")
+
+for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
+    with tab:
+        pp_ds = ppl2[ppl2["dataset"] == ds].copy()
+        if pp_ds.empty:
+            st.info("No scored test perturbations for this dataset.")
+            continue
+        perts = pp_ds.groupby("perturbation")["l2"].mean().sort_values(
+            ascending=False).index.tolist()  # hardest first
+        chosen = st.selectbox("Example perturbation (highlight + scatter)", perts,
+                              key=f"ex_{ds}")
+        pp_ds["sel"] = pp_ds["perturbation"] == chosen
+        pp_ds = add_swarm_offsets(pp_ds, "l2", ["method"])
+        morder = pp_ds.groupby("method")["l2"].mean().sort_values().index.tolist()
+
+        # (a) beeswarm of L2 per method; red tick = mean; orange = chosen perturbation
+        x = alt.X("method:N", sort=morder, title=None,
+                  axis=alt.Axis(labelAngle=-30, labelFontSize=12))
+        pts = alt.Chart(pp_ds).mark_circle().encode(
+            x=x, xOffset="swarm:Q",
+            y=alt.Y("l2:Q", title="Prediction error (L2)"),
+            color=alt.Color("sel:N", scale=alt.Scale(domain=[False, True],
+                            range=["#9aa0a6", "orange"]), legend=None),
+            size=alt.Size("sel:N", scale=alt.Scale(domain=[False, True],
+                          range=[26, 150]), legend=None),
+            order=alt.Order("sel:N"),   # draw the orange point on top
+            tooltip=["method", "perturbation", alt.Tooltip("l2:Q", format=".2f")],
+        )
+        mean_tick = alt.Chart(pp_ds).mark_tick(
+            color="red", thickness=2, size=34).encode(x=x, y="mean(l2):Q")
+        st.altair_chart((pts + mean_tick).properties(height=420), use_container_width=True)
+
+        # (b) predicted-Δ vs observed-Δ scatter, one facet per method, for `chosen`
+        if scatter_df is None:
+            st.info("No scatter.parquet — run `pixi run collect` to enable the scatter grid.")
+            continue
+        sc = scatter_df[(scatter_df["dataset"] == ds)
+                        & (scatter_df["perturbation"] == chosen)
+                        & (scatter_df["method"].isin(morder))]  # same methods as beeswarm
+        if sc.empty:
+            st.info(f"No per-gene scatter points for {chosen}.")
+            continue
+        lim = float(max(sc["observed_delta"].abs().max(), sc["predicted_delta"].abs().max()))
+        # points + the y=x diagonal in ONE dataframe (facet of layered charts needs a
+        # shared data source); a `layer` flag selects each mark, `method` keeps facets.
+        diag = pd.concat([
+            pd.DataFrame({"method": m, "observed_delta": [-lim, lim],
+                          "predicted_delta": [-lim, lim], "gene": None})
+            for m in sc["method"].unique()
+        ], ignore_index=True)
+        combined = pd.concat([sc.assign(layer="pt"), diag.assign(layer="diag")],
+                             ignore_index=True)
+        enc_x = alt.X("observed_delta:Q", title="observed − control",
+                      scale=alt.Scale(domain=[-lim, lim]))
+        enc_y = alt.Y("predicted_delta:Q", title="predicted − control",
+                      scale=alt.Scale(domain=[-lim, lim]))
+        base = alt.Chart(combined)
+        line = base.transform_filter("datum.layer == 'diag'").mark_line(
+            color="#bbb", strokeDash=[4, 4]).encode(x=enc_x, y=enc_y, detail="method:N")
+        scat = base.transform_filter("datum.layer == 'pt'").mark_circle(
+            size=12, opacity=0.35).encode(
+            x=enc_x, y=enc_y,
+            tooltip=["gene", alt.Tooltip("observed_delta:Q", format=".2f"),
+                     alt.Tooltip("predicted_delta:Q", format=".2f")])
+        grid = (line + scat).properties(width=180, height=180).facet(
+            facet=alt.Facet("method:N", sort=morder, title=None), columns=4)
+        st.altair_chart(grid, use_container_width=False)
+
+        # R² / L2 annotation per method for the chosen perturbation (from scores)
+        ann = (df[(df["dataset"] == ds) & (df["perturbation"] == chosen)
+                  & (df["split"] == "test")]
+               .groupby("method")[["pearson_delta", "l2"]].mean())
+        if not ann.empty:
+            ann = ann.assign(**{"R²": ann["pearson_delta"] ** 2})[["R²", "l2"]] \
+                     .rename(columns={"l2": "L2"}).reindex(morder).dropna(how="all")
+            st.caption(f"Example: {chosen}")
+            st.dataframe(ann.style.format({"R²": "{:.3f}", "L2": "{:.2f}"}),
+                         use_container_width=False)
 
 # --- method-vs-method per-perturbation comparison ---------------------------
 if n_methods >= 2:
