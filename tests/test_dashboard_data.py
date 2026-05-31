@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from omni_scfm.dashboard_data import (
+    _swarm_1d,
+    add_swarm_offsets,
     hardest_table,
     leaderboard,
     method_comparison,
@@ -13,6 +16,26 @@ from omni_scfm.dashboard_data import (
     reproduction,
     reproduction_summary,
 )
+
+
+def test_swarm_1d_one_offset_per_point_and_dodges_overlaps():
+    y = np.array([1.0, 1.0, 1.0, 5.0])      # three coincident + one far
+    off = _swarm_1d(y, bin_frac=0.5, dx=1.0)
+    assert off.shape == (4,)
+    # the three equal points land in one row and get distinct offsets (no overlap)
+    assert len(set(off[:3])) == 3
+    assert 0.0 in off[:3]                   # first in a row sits on the centre line
+    assert off[3] == 0.0                    # lone far point centred in its own row
+
+
+def test_add_swarm_offsets_is_per_group():
+    df = pd.DataFrame({"m": ["a", "a", "a", "b"], "v": [1.0, 1.0, 1.0, 2.0]})
+    out = add_swarm_offsets(df, "v", ["m"])
+    assert "swarm" in out.columns and len(out) == 4
+    assert out.loc[out.m == "a", "swarm"].nunique() == 3   # dodged within group a
+    assert out.loc[out.m == "b", "swarm"].iloc[0] == 0.0   # singleton centred
+    # original columns preserved, input not mutated
+    assert "swarm" not in df.columns
 
 
 def _scores():

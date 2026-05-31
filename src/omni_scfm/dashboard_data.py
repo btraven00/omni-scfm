@@ -7,6 +7,7 @@ names, so `scores.parquet` and the published reference join directly on
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 METRIC_LABELS = {
@@ -21,6 +22,54 @@ def load_scores(path: str) -> pd.DataFrame:
     if isinstance(path, (list, tuple)):
         return pd.concat([pd.read_parquet(p) for p in path], ignore_index=True)
     return pd.read_parquet(path)
+
+
+def load_scatter(path: str) -> pd.DataFrame:
+    """Load one or more `scatter.parquet` (per-gene Δ-vs-Δ points)."""
+    if isinstance(path, (list, tuple)):
+        return pd.concat([pd.read_parquet(p) for p in path], ignore_index=True)
+    return pd.read_parquet(path)
+
+
+def _swarm_1d(y: np.ndarray, bin_frac: float = 0.02, dx: float = 1.0) -> np.ndarray:
+    """Beeswarm x-offsets for 1-D `y` (Altair has no native beeswarm).
+
+    Bins y into rows ~`bin_frac` of the value range tall, then dodges points within
+    each row symmetrically about 0 (…, -dx, 0, +dx, …) so they don't overlap. Returns
+    one offset per input point, in input order. Deterministic; offsets are in arbitrary
+    units the caller scales via xOffset.
+    """
+    y = np.asarray(y, dtype=float)
+    n = y.size
+    offsets = np.zeros(n)
+    if n == 0:
+        return offsets
+    finite = y[np.isfinite(y)]
+    span = (finite.max() - finite.min()) if finite.size else 0.0
+    h = span * bin_frac if span > 0 else 1.0
+    order = np.argsort(y, kind="stable")
+    bins: dict[int, int] = {}
+    for idx in order:
+        yi = y[idx]
+        b = int(np.floor(yi / h)) if np.isfinite(yi) else 0
+        k = bins.get(b, 0)                       # how many already placed in this row
+        # symmetric dodge: 0, +1, -1, +2, -2, ...
+        step = (k + 1) // 2
+        sign = 1 if k % 2 == 1 else -1
+        offsets[idx] = 0.0 if k == 0 else sign * step * dx
+        bins[b] = k + 1
+    return offsets
+
+
+def add_swarm_offsets(df: pd.DataFrame, value_col: str, group_cols: list[str],
+                      out_col: str = "swarm", bin_frac: float = 0.02,
+                      dx: float = 1.0) -> pd.DataFrame:
+    """Add `out_col` = per-group beeswarm x-offset for `value_col` (see `_swarm_1d`)."""
+    df = df.copy()
+    df[out_col] = 0.0
+    for _, idx in df.groupby(group_cols, observed=True, sort=False).groups.items():
+        df.loc[idx, out_col] = _swarm_1d(df.loc[idx, value_col].to_numpy(), bin_frac, dx)
+    return df
 
 
 def leaderboard(df: pd.DataFrame, split: str = "test", metric: str = "pearson_delta") -> pd.DataFrame:

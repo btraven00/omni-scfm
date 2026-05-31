@@ -23,7 +23,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from .metrics import as_gene_map, condition_metrics, normalize_condition, top_expressed_genes
+from .metrics import (
+    _as_float_array,
+    as_gene_map,
+    condition_metrics,
+    normalize_condition,
+    top_expressed_genes,
+)
 
 _PRED_SUFFIXES = (".predictions.json.gz", ".predictions.json")
 
@@ -96,7 +102,16 @@ def _run_id(out_dir: Path) -> str | None:
         return None
 
 
-def collect_scores(out_dir: str | Path, top_n: int = 1000) -> pd.DataFrame:
+def _collect(out_dir: str | Path, top_n: int = 1000,
+             scatter_top_n: int | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Core collection pass. Returns (scores, scatter).
+
+    `scores` is per (dataset, method, perturbation, seed) metrics. When
+    `scatter_top_n` is set, `scatter` holds per-gene (observed-ctrl, predicted-ctrl)
+    deltas for the top-`scatter_top_n` control-expressed genes of each scored *test*
+    condition — the data behind the paper's predicted-vs-observed scatter panels.
+    The two share one walk of the prediction JSONs so the JSONs are read once.
+    """
     out = Path(out_dir)
     run_id = _run_id(out)
     # Accept both gzipped and plain prediction files.
@@ -122,6 +137,7 @@ def collect_scores(out_dir: str | Path, top_n: int = 1000) -> pd.DataFrame:
         split_labels[(ds, seed)] = labels
 
     rows = []
+    scatter_rows = []
     for p, ds, method, seed in method_files:
         observed = ground_truth.get(ds)
         if not observed or "ctrl" not in observed:
@@ -140,12 +156,44 @@ def collect_scores(out_dir: str | Path, top_n: int = 1000) -> pd.DataFrame:
                 {"run_id": run_id, "dataset": ds, "seed": seed, "method": method,
                  "perturbation": cond, "split": labels.get(cond), **m}
             )
+            # Per-gene Δ-vs-Δ points for the scatter panel (test split only, to keep
+            # the artifact compact). Genes are the top control-expressed ones, same
+            # ranking the metric uses, so the scatter and the L2/R² annotation agree.
+            if scatter_top_n and labels.get(cond) == "test":
+                obs_c, pred_c = observed[cond], pred_map
+                genes = [g for g in top_genes[:scatter_top_n]
+                         if g in pred_c and g in obs_c and g in baseline]
+                pv = _as_float_array(pred_c, genes)
+                ov = _as_float_array(obs_c, genes)
+                bv = _as_float_array(baseline, genes)
+                for gname, od, prd in zip(genes, ov - bv, pv - bv):
+                    scatter_rows.append(
+                        {"run_id": run_id, "dataset": ds, "seed": seed, "method": method,
+                         "perturbation": cond, "gene": gname,
+                         "observed_delta": od, "predicted_delta": prd})
 
-    return pd.DataFrame(
+    scores = pd.DataFrame(
         rows,
         columns=["run_id", "dataset", "seed", "method", "perturbation", "split",
                  "n_genes", "pearson", "pearson_delta", "l2"],
     )
+    scatter = pd.DataFrame(
+        scatter_rows,
+        columns=["run_id", "dataset", "seed", "method", "perturbation", "gene",
+                 "observed_delta", "predicted_delta"],
+    )
+    return scores, scatter
+
+
+def collect_scores(out_dir: str | Path, top_n: int = 1000) -> pd.DataFrame:
+    """Per (dataset, method, perturbation, seed) metrics — the scores.parquet table."""
+    return _collect(out_dir, top_n)[0]
+
+
+def collect_scatter(out_dir: str | Path, top_n: int = 1000,
+                    scatter_top_n: int = 200) -> pd.DataFrame:
+    """Per-gene Δ-vs-Δ points for test conditions — the scatter.parquet table."""
+    return _collect(out_dir, top_n, scatter_top_n)[1]
 
 
 def main() -> None:
@@ -155,15 +203,24 @@ def main() -> None:
     ap.add_argument("out_dir", nargs="?", default="out",
                     help="benchmark output directory for one run (default: out)")
     ap.add_argument("-o", "--output", default=None,
-                    help="parquet path (default: <out_dir>/scores.parquet)")
+                    help="scores parquet path (default: <out_dir>/scores.parquet)")
+    ap.add_argument("--scatter-output", default=None,
+                    help="scatter parquet path (default: <out_dir>/scatter.parquet)")
     ap.add_argument("--top-n", type=int, default=1000, help="top-N expressed genes (default 1000)")
+    ap.add_argument("--scatter-top-n", type=int, default=200,
+                    help="genes per test condition in scatter.parquet (default 200; 0 disables)")
     args = ap.parse_args()
 
     output = args.output or str(Path(args.out_dir) / "scores.parquet")
-    df = collect_scores(args.out_dir, args.top_n)
-    df.to_parquet(output, index=False)
-    n_methods = df["method"].nunique() if len(df) else 0
-    print(f"collect: {len(df)} rows, {n_methods} method(s) from {args.out_dir} -> {output}")
+    scatter_output = args.scatter_output or str(Path(args.out_dir) / "scatter.parquet")
+    scores, scatter = _collect(args.out_dir, args.top_n, args.scatter_top_n or None)
+    scores.to_parquet(output, index=False)
+    n_methods = scores["method"].nunique() if len(scores) else 0
+    print(f"collect: {len(scores)} rows, {n_methods} method(s) from {args.out_dir} -> {output}")
+    if args.scatter_top_n:
+        scatter.to_parquet(scatter_output, index=False)
+        print(f"collect: {len(scatter)} scatter points "
+              f"({scatter['perturbation'].nunique() if len(scatter) else 0} test perts) -> {scatter_output}")
 
 
 if __name__ == "__main__":

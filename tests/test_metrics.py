@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from omni_scfm.collect import collect_scores
+import numpy as np
+
+from omni_scfm.collect import collect_scatter, collect_scores
 from omni_scfm.metrics import (
     condition_metrics,
     normalize_condition,
@@ -133,6 +135,29 @@ def test_collect_scores_end_to_end(tmp_path):
 
     # mean keyed 'A' was normalised to 'A+ctrl' to match ground truth.
     assert "A+ctrl" in set(df["perturbation"])
+
+
+def test_collect_scatter_test_conditions_only(tmp_path):
+    _build_out_tree(tmp_path)
+    sc = collect_scatter(tmp_path, scatter_top_n=200)
+    assert set(sc.columns) >= {
+        "run_id", "dataset", "seed", "method", "perturbation", "gene",
+        "observed_delta", "predicted_delta",
+    }
+    # only the held-out (test) condition appears — not ctrl/train
+    assert set(sc["perturbation"]) == {"A+ctrl"}
+    assert set(sc["method"]) == {"mean"}
+    # 4 genes; baseline is ctrl=0 and the prediction is perfect, so
+    # observed_delta == predicted_delta == the observed vector
+    assert len(sc) == 4
+    assert np.allclose(sc["observed_delta"], sc["predicted_delta"])
+    assert sorted(sc["observed_delta"]) == [1, 2, 3, 4]
+
+
+def test_collect_scatter_respects_top_n_cap(tmp_path):
+    _build_out_tree(tmp_path)
+    sc = collect_scatter(tmp_path, scatter_top_n=2)
+    assert len(sc) == 2  # one test condition, capped to 2 genes
 
 
 def test_collect_reads_gzipped_predictions(tmp_path):
