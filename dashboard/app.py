@@ -385,57 +385,69 @@ with tab_ext:
 
     # --- OmniPath gene-network centrality vs difficulty ---------------------
     # Hypothesis: perturbing high-out-degree (broad regulatory) genes is harder.
-    # Difficulty = R²δ (scale-invariant); we also show L2 (magnitude) and the
-    # partial correlation controlling for it, since centrality correlates with
-    # effect magnitude (the confound we found earlier).
+    # Pick the difficulty metric for the y-axis; L2 stays the magnitude control for
+    # the partial correlation (centrality correlates with effect magnitude — the
+    # confound we found earlier).
     st.header("Gene-network centrality vs difficulty (OmniPath)")
     if centrality is None:
         st.info(f"No `{Path(centrality_path).name}` — run `pixi run -e omnipath "
                 "python scripts/gene_centrality.py` to enable this.")
     else:
-        c1, c2, c3 = st.columns([2, 2, 2])
+        c1, c2, c3, c4 = st.columns([2, 2, 2, 2])
         cds = c1.selectbox("dataset", datasets_sel, key="cent_ds")
-        measure = c2.selectbox("centrality measure", CENTRALITY_MEASURES, key="cent_measure")
-        # symlog (not log) for the heavy-tailed centrality axis: it's log-like but keeps
-        # the zeros (out_degree/betweenness = 0). Spearman is rank-based so unaffected.
-        logx = c3.checkbox("log-scale centrality (symlog)", value=True, key="cent_logx")
-        d = df[(df["dataset"] == cds) & (df["split"] == split)].dropna(subset=["pearson_delta"])
+        ymetric = c2.selectbox("difficulty (y-axis)", list(METRIC_LABELS),
+                               format_func=METRIC_LABELS.get, key="cent_ymetric")
+        measure = c3.selectbox("centrality measure", CENTRALITY_MEASURES, key="cent_measure")
+        # symlog (not log) for the heavy-tailed centrality axis: log-like but keeps the
+        # zeros (out_degree/betweenness = 0). Spearman is rank-based so unaffected.
+        logx = c4.checkbox("log centrality", value=True, key="cent_logx")
+
+        ylabel = METRIC_LABELS[ymetric]
+        harder_high = ymetric == "l2"   # L2: higher = harder; pearson*: higher = easier
+        d = df[(df["dataset"] == cds) & (df["split"] == split)].dropna(subset=[ymetric])
         g = (d.groupby("perturbation")
-             .agg(R2d=("pearson_delta", "mean"), L2=("l2", "mean")).reset_index())
+             .agg(y=(ymetric, "mean"), mag=("l2", "mean")).reset_index())
         g["cent"] = g["perturbation"].map(
             perturbation_centrality(g["perturbation"], centrality, measure, "max"))
-        g = g.dropna(subset=["cent", "R2d"])
+        g = g.dropna(subset=["cent", "y"])
         if len(g) < 3:
             st.info("Too few perturbations with centrality + difficulty to correlate.")
         else:
-            rk = g[["cent", "R2d", "L2"]].rank()
+            rk = g[["cent", "y", "mag"]].rank()
             cm = rk.corr()
-            r_cd, r_cl, r_dl = cm.loc["cent", "R2d"], cm.loc["cent", "L2"], cm.loc["R2d", "L2"]
-            denom = ((1 - r_cl ** 2) * (1 - r_dl ** 2)) ** 0.5
-            partial = (r_cd - r_cl * r_dl) / denom if denom > 0 else float("nan")
+            r_cy, r_cm, r_ym = cm.loc["cent", "y"], cm.loc["cent", "mag"], cm.loc["y", "mag"]
+            if ymetric == "l2":            # y IS the magnitude -> partialling it out is degenerate
+                partial, ptxt = float("nan"), "n/a (y is magnitude)"
+            else:
+                den = ((1 - r_cm ** 2) * (1 - r_ym ** 2)) ** 0.5
+                partial = (r_cy - r_cm * r_ym) / den if den > 0 else float("nan")
+                ptxt = f"{partial:+.2f}"
+            dir_note = ("higher = harder, so positive ρ ⇒ central genes harder"
+                        if harder_high else
+                        "higher = easier, so negative ρ ⇒ central genes harder")
             st.caption(
-                f"Spearman ρ(centrality, R²δ) = **{r_cd:+.2f}**  ·  ρ(centrality, L2 = magnitude) "
-                f"= **{r_cl:+.2f}**  ·  partial ρ(centrality, R²δ | L2) = **{partial:+.2f}**  "
-                f"(n={len(g)}). R²δ higher = easier, so negative ρ ⇒ central genes harder; "
-                f"if the partial ≈ 0 while ρ-with-L2 is strong, it's a magnitude confound.")
+                f"Spearman ρ(centrality, {ylabel}) = **{r_cy:+.2f}**  ·  partial ρ(· | L2) = "
+                f"**{ptxt}**  ·  ρ(centrality, L2) = **{r_cm:+.2f}**  (n={len(g)}). "
+                f"{ylabel}: {dir_note}; a partial ≈ 0 with strong ρ-vs-L2 ⇒ magnitude confound.")
             xscale = alt.Scale(type="symlog") if logx else alt.Scale()
             enc_x = alt.X("cent:Q", title=f"{measure} (max over the pair's genes)", scale=xscale)
             base_c = alt.Chart(g)
             pts_c = base_c.mark_circle(size=80, opacity=0.6).encode(
-                x=enc_x, y=alt.Y("R2d:Q", title="R²δ (mean over methods; higher = easier)"),
-                size=alt.Size("L2:Q", title="L2 (magnitude)"),
+                x=enc_x, y=alt.Y("y:Q", title=ylabel, scale=alt.Scale(zero=False)),
+                size=alt.Size("mag:Q", title="L2 (magnitude)"),
                 tooltip=["perturbation", alt.Tooltip("cent:Q", format=".2f"),
-                         alt.Tooltip("R2d:Q", format=".3f"), alt.Tooltip("L2:Q", format=".2f")],
+                         alt.Tooltip("y:Q", format=".3f", title=ylabel),
+                         alt.Tooltip("mag:Q", format=".2f", title="L2")],
             )
-            trend_c = base_c.transform_loess("cent", "R2d").mark_line(
-                color="#e45756", size=2).encode(x=enc_x, y="R2d:Q")
-            hard = g.nsmallest(min(8, len(g)), "R2d")        # label the hardest perturbations
+            trend_c = base_c.transform_loess("cent", "y").mark_line(
+                color="#e45756", size=2).encode(x=enc_x, y="y:Q")
+            k = min(8, len(g))           # label the hardest perturbations
+            hard = g.nlargest(k, "y") if harder_high else g.nsmallest(k, "y")
             labels_c = alt.Chart(hard).mark_text(align="left", dx=6, dy=-4, fontSize=10,
                                                  color="#555").encode(
-                x=enc_x, y="R2d:Q", text="perturbation")
-            title = (f"ρ(centrality, R²δ) = {r_cd:+.2f}    "
-                     f"partial(| L2) = {partial:+.2f}    n = {len(g)}    "
-                     "(red = loess trend; labels = hardest)")
+                x=enc_x, y="y:Q", text="perturbation")
+            title = (f"ρ(centrality, {ylabel}) = {r_cy:+.2f}    partial(| L2) = {ptxt}    "
+                     f"n = {len(g)}    (red = loess; labels = hardest)")
             st.altair_chart((pts_c + trend_c + labels_c)
                             .properties(height=420, title=title).interactive(),
                             use_container_width=True)
