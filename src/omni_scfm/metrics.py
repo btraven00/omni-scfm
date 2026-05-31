@@ -44,6 +44,23 @@ def top_expressed_genes(baseline: GeneMap, n: int = 1000) -> list[str]:
     return [g for g, _ in sorted(baseline.items(), key=lambda kv: kv[1], reverse=True)[:n]]
 
 
+def _as_float_array(m: GeneMap, genes: list[str]) -> np.ndarray:
+    """Pull `genes` from a gene map as floats; non-numeric entries -> NaN.
+
+    Methods can legitimately emit `NA`/null predictions (e.g. lpm on conditions
+    it cannot embed). R serialises `NA` as the string ``"NA"``, so a value may be
+    a string here; coerce to NaN rather than crashing. Any NaN then propagates to
+    a NaN metric (R's `cor(use="everything")` does the same), excluding the
+    condition from leaderboards without dropping the whole run.
+    """
+    def f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return float("nan")
+    return np.array([f(m[x]) for x in genes], dtype=float)
+
+
 def _cor(a: np.ndarray, b: np.ndarray) -> float:
     if len(a) < 2 or a.std() == 0 or b.std() == 0:
         return float("nan")
@@ -55,9 +72,9 @@ def condition_metrics(
 ) -> dict[str, float]:
     """Pearson / Pearson-delta / L2 for one condition over `genes` (intersection)."""
     g = [x for x in genes if x in pred and x in obs and x in baseline]
-    p = np.array([pred[x] for x in g], dtype=float)
-    o = np.array([obs[x] for x in g], dtype=float)
-    b = np.array([baseline[x] for x in g], dtype=float)
+    p = _as_float_array(pred, g)
+    o = _as_float_array(obs, g)
+    b = _as_float_array(baseline, g)
     return {
         "n_genes": len(g),
         "pearson": _cor(p, o),

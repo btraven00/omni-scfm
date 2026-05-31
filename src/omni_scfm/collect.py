@@ -81,8 +81,24 @@ def _load_predmap(pred_path: Path) -> dict[str, dict[str, float]]:
     return {normalize_condition(k): as_gene_map(v, gene_names) for k, v in preds.items()}
 
 
+def _run_id(out_dir: Path) -> str | None:
+    """OmniBenchmark's per-run id from ``<out>/.metadata/manifest.json``.
+
+    Tagging each row with it lets several runs' ``scores.parquet`` be concatenated
+    and aggregated/compared by ``run_id`` (the dashboard merges on it).
+    """
+    manifest = out_dir / ".metadata" / "manifest.json"
+    if not manifest.exists():
+        return None
+    try:
+        return json.loads(manifest.read_text()).get("run_id")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def collect_scores(out_dir: str | Path, top_n: int = 1000) -> pd.DataFrame:
     out = Path(out_dir)
+    run_id = _run_id(out)
     # Accept both gzipped and plain prediction files.
     pred_files = list(out.rglob("*.predictions.json.gz")) + list(out.rglob("*.predictions.json"))
 
@@ -121,13 +137,13 @@ def collect_scores(out_dir: str | Path, top_n: int = 1000) -> pd.DataFrame:
                 continue  # additive on a single-pert is leakage (== observed mean)
             m = condition_metrics(pred_map, observed[cond], baseline, top_genes)
             rows.append(
-                {"dataset": ds, "seed": seed, "method": method,
+                {"run_id": run_id, "dataset": ds, "seed": seed, "method": method,
                  "perturbation": cond, "split": labels.get(cond), **m}
             )
 
     return pd.DataFrame(
         rows,
-        columns=["dataset", "seed", "method", "perturbation", "split",
+        columns=["run_id", "dataset", "seed", "method", "perturbation", "split",
                  "n_genes", "pearson", "pearson_delta", "l2"],
     )
 

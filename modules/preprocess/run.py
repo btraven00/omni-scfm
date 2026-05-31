@@ -103,6 +103,22 @@ def _new_data_process_scfoundation(raw_h5ad: Path, name: str, workdir: Path):
     return ad.read_h5ad(folder / name / "perturb_processed.h5ad")
 
 
+def _canonicalize_sparse(adata) -> None:
+    """Sort indices of any sparse X / layers in place.
+
+    GEARS `new_data_process` (and some figshare h5ads) emit CSR/CSC matrices with
+    unsorted within-major indices. anndata/scipy tolerate this, but R's Matrix
+    package rejects it on read ("invalid dgCMatrix object: 'i' slot is not
+    increasing within columns"), which breaks the R methods (mean, lpm). Sorting
+    is a no-op when already canonical.
+    """
+    from scipy.sparse import issparse
+
+    for mat in (adata.X, *adata.layers.values()):
+        if issparse(mat) and hasattr(mat, "sort_indices") and not mat.has_sorted_indices:
+            mat.sort_indices()
+
+
 def main() -> None:
     args = parse_ob_args()
     output_dir = Path(require(args, "output_dir"))
@@ -131,6 +147,7 @@ def main() -> None:
             else adata.var_names.astype(str).tolist()
         )
 
+        _canonicalize_sparse(adata)  # sort sparse indices so R's Matrix accepts X
         out_h5ad = output_dir / f"{name}.h5ad"
         adata.write_h5ad(out_h5ad)  # adds modern encoding-type attrs (picklerick-readable)
         with open(output_dir / f"{name}.gene_names.json", "w", encoding="utf8") as fh:
