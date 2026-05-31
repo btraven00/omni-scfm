@@ -300,6 +300,9 @@ with tab_ext:
                 ppd = pp[pp["dataset"] == ds]
                 pert_order = ppd.groupby("perturbation")[metric].mean().sort_values().index.tolist()
                 n_pert = len(pert_order)
+                # label the dataset by perturbation type (norman = double, adamson = single)
+                ngenes = [len([x for x in str(p).split("+") if x != "ctrl"]) for p in pert_order]
+                ptype = "double" if ngenes and sum(n >= 2 for n in ngenes) > len(ngenes) / 2 else "single"
                 show_labels = n_pert <= 40
                 panel_w = max(900, 20 * n_pert)
 
@@ -321,7 +324,8 @@ with tab_ext:
                     opacity=alt.condition(hover, alt.value(0.95), alt.value(0.12)),
                     size=alt.condition(pin, alt.value(220), alt.value(80)),
                     tooltip=["perturbation", "method", alt.Tooltip(f"{metric}:Q", format=".3f")],
-                ).properties(height=300, width=panel_w, title=f"{mlabel} — {ds}")
+                ).properties(height=300, width=panel_w,
+                             title=f"{mlabel} — {ds} ({ptype}-perturbation)")
                 heat = alt.Chart(ppd).mark_rect().encode(
                     x=alt.X("perturbation:N", sort=pert_order,
                             title="perturbation (hardest → easiest)",
