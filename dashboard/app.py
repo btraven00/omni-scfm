@@ -423,7 +423,8 @@ with tab_ext:
                 tooltip=["perturbation", alt.Tooltip("cent:Q", format=".2f"),
                          alt.Tooltip("R2d:Q", format=".3f"), alt.Tooltip("L2:Q", format=".2f")],
             )
-            trend_c = base_c.transform_loess("cent", "R2d").mark_line(color="#e45756", size=2)
+            trend_c = base_c.transform_loess("cent", "R2d").mark_line(
+                color="#e45756", size=2).encode(x=enc_x, y="R2d:Q")
             hard = g.nsmallest(min(8, len(g)), "R2d")        # label the hardest perturbations
             labels_c = alt.Chart(hard).mark_text(align="left", dx=6, dy=-4, fontSize=10,
                                                  color="#555").encode(
