@@ -284,15 +284,18 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
             facet=alt.Facet("method:N", sort=morder, title=None), columns=4)
         st.altair_chart(grid, use_container_width=False)
 
-        # R² / L2 annotation per method for the chosen perturbation (from scores)
+        # R²δ / L2 annotation per method for the chosen perturbation (from scores).
+        # The paper's panel-b "R²" is actually the Pearson corr of predicted-Δ vs
+        # observed-Δ (i.e. our pearson_delta), NOT its square — show it directly so
+        # the numbers match the paper.
         ann = (df[(df["dataset"] == ds) & (df["perturbation"] == chosen)
                   & (df["split"] == "test")]
                .groupby("method")[["pearson_delta", "l2"]].mean())
         if not ann.empty:
-            ann = ann.assign(**{"R²": ann["pearson_delta"] ** 2})[["R²", "l2"]] \
-                     .rename(columns={"l2": "L2"}).reindex(morder).dropna(how="all")
-            st.caption(f"Example: {chosen}")
-            st.dataframe(ann.style.format({"R²": "{:.3f}", "L2": "{:.2f}"}),
+            ann = ann.rename(columns={"pearson_delta": "R²δ", "l2": "L2"}) \
+                     .reindex(morder).dropna(how="all")
+            st.caption(f"Example: {chosen}  (R²δ = Pearson corr of predicted-Δ vs observed-Δ)")
+            st.dataframe(ann.style.format({"R²δ": "{:.3f}", "L2": "{:.2f}"}),
                          use_container_width=False)
 
 # --- method-vs-method per-perturbation comparison ---------------------------
