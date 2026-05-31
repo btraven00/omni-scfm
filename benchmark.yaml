@@ -60,11 +60,11 @@ stages:
       - id: norman_from_scfoundation
         name: "Norman 2019 (scFoundation-processed, figshare) — the paper's double-pert benchmark substrate"
         software_environment: "omni_data"
-        # Once OB's `exclude` prunes transitively, uncomment to keep GEARS off this
-        # substrate (stock GEARS here is not the published scfoundation number — that
-        # is the fork/embeddings method). Pairs with the commented `gears` method
-        # module in the methods stage.
-        # exclude: ["gears"]
+        # Keep GEARS off this substrate: stock GEARS here is not the published
+        # scfoundation number (that is the fork/embeddings method). Requires OB's
+        # transitive+symmetric `exclude` (PR #336 / bug/exclude-behavior). Pairs with
+        # the `gears` method module in the methods stage.
+        exclude: ["gears"]
         # The raw figshare h5ad (gse133344_…_withtotalcount, 19264 genes); the
         # preprocess stage runs GEARS new_data_process on it. Fetched from the
         # figshare API host: figshare.com/ndownloader returns HTTP 202 (async) which
@@ -175,17 +175,15 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: additive
-      # GEARS (GNN). Execution path is validated end-to-end on GPU (gears-gpu env +
-      # gears_wrapper.py compat shim); scoped to norman + adamson only — stock GEARS
-      # on the scfoundation substrate is NOT the published scfoundation number (that's
-      # the fork/embeddings method). Kept commented until OB's `exclude` prunes a
-      # method from a dataset transitively (0.5.1 does not — see the norman_from_
-      # scfoundation module's commented `exclude: ["gears"]`). To enable: uncomment
-      # this block AND that exclude.
-      # - id: gears
-      #   name: "GEARS (GNN; verbatim run_gears.py, stock cell-gears 0.1.2)"
-      #   software_environment: "gears-gpu"
-      #   repository:
-      #     url: "."
-      #     commit: HEAD
-      #     entrypoint: gears
+      # GEARS (GNN). Validated end-to-end on GPU (gears-gpu env + gears_wrapper.py
+      # compat shim). Scoped to norman + adamson via the `exclude: ["gears"]` on the
+      # norman_from_scfoundation dataset module — stock GEARS on that substrate is NOT
+      # the published scfoundation number (that's the fork/embeddings method).
+      # Requires OB's transitive+symmetric `exclude` (PR #336 / bug/exclude-behavior).
+      - id: gears
+        name: "GEARS (GNN; verbatim run_gears.py, stock cell-gears 0.1.2)"
+        software_environment: "gears-gpu"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: gears
