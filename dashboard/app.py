@@ -393,14 +393,17 @@ with tab_ext:
         st.info(f"No `{Path(centrality_path).name}` — run `pixi run -e omnipath "
                 "python scripts/gene_centrality.py` to enable this.")
     else:
-        c1, c2, c3, c4 = st.columns([2, 2, 2, 2])
+        c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 1.6, 1.4])
         cds = c1.selectbox("dataset", datasets_sel, key="cent_ds")
         ymetric = c2.selectbox("difficulty (y-axis)", list(METRIC_LABELS),
                                format_func=METRIC_LABELS.get, key="cent_ymetric")
         measure = c3.selectbox("centrality measure", CENTRALITY_MEASURES, key="cent_measure")
+        # how to combine the two genes of a double: max = "contains a hub", sum = total
+        # regulatory load, mean = average. (Singles reduce to the one gene either way.)
+        agg = c4.selectbox("combine genes", ["max", "sum", "mean"], key="cent_agg")
         # symlog (not log) for the heavy-tailed centrality axis: log-like but keeps the
         # zeros (out_degree/betweenness = 0). Spearman is rank-based so unaffected.
-        logx = c4.checkbox("log centrality", value=True, key="cent_logx")
+        logx = c5.checkbox("log centrality", value=True, key="cent_logx")
 
         ylabel = METRIC_LABELS[ymetric]
         harder_high = ymetric == "l2"   # L2: higher = harder; pearson*: higher = easier
@@ -408,7 +411,7 @@ with tab_ext:
         g = (d.groupby("perturbation")
              .agg(y=(ymetric, "mean"), mag=("l2", "mean")).reset_index())
         g["cent"] = g["perturbation"].map(
-            perturbation_centrality(g["perturbation"], centrality, measure, "max"))
+            perturbation_centrality(g["perturbation"], centrality, measure, agg))
         g = g.dropna(subset=["cent", "y"])
         if len(g) < 3:
             st.info("Too few perturbations with centrality + difficulty to correlate.")
@@ -430,7 +433,7 @@ with tab_ext:
                 f"**{ptxt}**  ·  ρ(centrality, L2) = **{r_cm:+.2f}**  (n={len(g)}). "
                 f"{ylabel}: {dir_note}; a partial ≈ 0 with strong ρ-vs-L2 ⇒ magnitude confound.")
             xscale = alt.Scale(type="symlog") if logx else alt.Scale()
-            enc_x = alt.X("cent:Q", title=f"{measure} (max over the pair's genes)", scale=xscale)
+            enc_x = alt.X("cent:Q", title=f"{measure} ({agg} over the pair's genes)", scale=xscale)
             base_c = alt.Chart(g)
             pts_c = base_c.mark_circle(size=80, opacity=0.6).encode(
                 x=enc_x, y=alt.Y("y:Q", title=ylabel, scale=alt.Scale(zero=False)),
@@ -451,5 +454,5 @@ with tab_ext:
             st.altair_chart((pts_c + trend_c + labels_c)
                             .properties(height=420, title=title).interactive(),
                             use_container_width=True)
-            cov = perturbation_centrality(g["perturbation"], centrality, measure, "max").notna().mean()
+            cov = perturbation_centrality(g["perturbation"], centrality, measure, agg).notna().mean()
             st.caption(f"OmniPath coverage of {cds} perturbations: {cov*100:.0f}%.")
