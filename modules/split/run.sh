@@ -19,6 +19,7 @@ export PYTHONNOUSERSITE=1   # ~/.local/lib/python3.10 leaks into the env otherwi
 
 REPO="$(pwd)"
 PREP="$REPO/vendor/paper/benchmark/src/prepare_perturbation_data.py"
+SCF_SPLIT="$REPO/modules/split/scf_split.py"
 
 output_dir="" ; data_h5ad="" ; data_go="" ; seed="1"
 while [[ $# -gt 0 ]]; do
@@ -54,7 +55,14 @@ if [[ -n "${OMNI_GEARS_CACHE:-}" && -d "$OMNI_GEARS_CACHE" ]]; then
 fi
 
 rid="result"
-( cd "$wd" && python "$PREP" \
+# scFoundation Norman: the paper's verbatim script can't run off-cluster for this
+# dataset (forked GEARS 0.0.2 + absolute /g/huber paths), so use our faithful port
+# of its split branch (lines 100-115). All other datasets run the script verbatim.
+case "$ds" in
+  *scfoundation*) SCRIPT="$SCF_SPLIT" ;;
+  *)              SCRIPT="$PREP" ;;
+esac
+( cd "$wd" && python "$SCRIPT" \
     --dataset_name "$ds" --seed "$seed" \
     --working_dir "$wd" --result_id "$rid" )
 

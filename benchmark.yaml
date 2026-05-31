@@ -38,7 +38,10 @@ stages:
       - id: adamson
         name: "Adamson 2016 (GEARS-processed, Harvard Dataverse)"
         software_environment: "omni_data"
-        exclude: ["additive"]   # single-pert: additive is degenerate (leakage)
+        # NB: additive is degenerate on this single-pert dataset (every "double" is a
+        # single -> leakage). `exclude` does not prune in OB 0.5.1, so the collector's
+        # DOUBLE_ONLY filter drops additive's single-pert rows instead (see collect.py).
+        exclude: ["additive"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e  # fix/downloadsh-extensionless-naming (robust naming)
@@ -54,6 +57,19 @@ stages:
         parameters:
           - uri: "https://dataverse.harvard.edu/api/access/datafile/6154020"
             hash: "md5:cdc41d6050e619c37fd9dd44d440e2b4"
+      - id: norman_from_scfoundation
+        name: "Norman 2019 (scFoundation-processed, figshare) — the paper's double-pert benchmark substrate"
+        software_environment: "omni_data"
+        # The raw figshare h5ad (gse133344_…_withtotalcount, 19264 genes); the
+        # preprocess stage runs GEARS new_data_process on it. Fetched from the
+        # figshare API host: figshare.com/ndownloader returns HTTP 202 (async) which
+        # hapiq fetch doesn't poll — the ndownloader.figshare.com host serves directly.
+        repository:
+          url: https://github.com/btraven00/omni-data
+          commit: fe4df0e
+        parameters:
+          - uri: "https://ndownloader.figshare.com/files/44477939"
+            hash: "md5:f9c76065fafa43303dae3f80fe4587a8"
 
   # 2. Preprocess: extract the processed AnnData + gene names (seed-independent).
   - id: preprocess
@@ -68,8 +84,11 @@ stages:
         path: "{dataset}.go.csv"
     modules:
       - id: gears_h5ad
-        name: "extract perturb_processed.h5ad + gene names"
-        software_environment: "base"
+        name: "processed AnnData + gene names (extract; GEARS new_data_process for scFoundation)"
+        # gears env: the scFoundation variant needs cell-gears new_data_process.
+        # Dataset-aware single module (mirrors the paper's prepare_perturbation_data.py)
+        # because OB 0.5.1 `exclude` does not prune cross-dataset module paths.
+        software_environment: "gears"
         repository:
           url: "."
           commit: HEAD
