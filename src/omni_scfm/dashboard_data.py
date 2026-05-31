@@ -79,6 +79,58 @@ def add_swarm_offsets(df: pd.DataFrame, value_col: str, group_cols: list[str],
     return df
 
 
+def _silverman_bw(x: np.ndarray) -> float:
+    """Silverman rule-of-thumb KDE bandwidth (>0)."""
+    n = x.size
+    if n < 2:
+        return 1.0
+    s = float(x.std(ddof=1))
+    return (1.06 * s * n ** -0.2) if s > 0 else 1.0
+
+
+def violin_density(values, n_grid: int = 64) -> pd.DataFrame:
+    """Gaussian-KDE density on a y-grid for a vertical violin.
+
+    Returns columns `y` (grid over the value range) and `dens` (normalised to peak 1,
+    so the caller can scale it to a fixed half-width). Empty input -> empty frame.
+    """
+    x = np.asarray(values, dtype=float)
+    x = x[np.isfinite(x)]
+    if x.size == 0:
+        return pd.DataFrame({"y": [], "dens": []})
+    lo, hi = float(x.min()), float(x.max())
+    if hi <= lo:
+        hi = lo + 1.0
+    grid = np.linspace(lo, hi, n_grid)
+    bw = _silverman_bw(x)
+    u = (grid[:, None] - x[None, :]) / bw
+    d = np.exp(-0.5 * u * u).sum(axis=1)
+    return pd.DataFrame({"y": grid, "dens": d / (d.max() or 1.0)})
+
+
+def violin_jitter(values, halfwidth: float = 0.4, seed: int = 0) -> np.ndarray:
+    """Per-value horizontal jitter that fills the violin envelope.
+
+    Each point is offset by a uniform random amount in ±`halfwidth`·(local density),
+    so dots scatter wide in dense bands and stay narrow in the tails — like a violin
+    with the raw points overlaid, and WITHOUT the columnar alignment a swarm produces.
+    Deterministic for a given `seed`. NaNs get offset 0.
+    """
+    x = np.asarray(values, dtype=float)
+    out = np.zeros(x.size)
+    fin = np.isfinite(x)
+    xv = x[fin]
+    if xv.size == 0:
+        return out
+    bw = _silverman_bw(xv)
+    u = (xv[:, None] - xv[None, :]) / bw
+    dens = np.exp(-0.5 * u * u).sum(axis=1)
+    dens = dens / (dens.max() or 1.0)
+    rng = np.random.default_rng(seed)
+    out[fin] = (rng.random(xv.size) * 2 - 1) * halfwidth * dens
+    return out
+
+
 def leaderboard(df: pd.DataFrame, split: str = "test", metric: str = "pearson_delta") -> pd.DataFrame:
     """Per (dataset, method) summary of a metric over the chosen split."""
     sub = df[df["split"] == split].dropna(subset=[metric])

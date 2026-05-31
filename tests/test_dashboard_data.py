@@ -15,7 +15,38 @@ from omni_scfm.dashboard_data import (
     per_perturbation,
     reproduction,
     reproduction_summary,
+    violin_density,
+    violin_jitter,
 )
+
+
+def test_violin_density_peak_normalised_and_on_grid():
+    g = violin_density([1.0, 1.1, 1.0, 5.0, 5.1], n_grid=32)
+    assert list(g.columns) == ["y", "dens"]
+    assert len(g) == 32
+    assert g["dens"].max() == pytest.approx(1.0)        # normalised to peak 1
+    assert (g["dens"] >= 0).all()
+    assert g["y"].min() == pytest.approx(1.0) and g["y"].max() == pytest.approx(5.1)
+
+
+def test_violin_density_empty():
+    assert violin_density([]).empty
+
+
+def test_violin_jitter_bounded_dense_wider_and_deterministic():
+    vals = np.r_[np.zeros(50), [10.0]]              # dense at 0, lone point at 10
+    j = violin_jitter(vals, halfwidth=0.4, seed=1)
+    assert j.shape == vals.shape
+    assert np.all(np.abs(j) <= 0.4 + 1e-9)          # within ±halfwidth
+    # the isolated tail point gets ~no jitter (low local density)
+    assert abs(j[-1]) < np.abs(j[:50]).mean()
+    # deterministic for a fixed seed
+    assert np.allclose(j, violin_jitter(vals, halfwidth=0.4, seed=1))
+
+
+def test_violin_jitter_nan_safe():
+    j = violin_jitter([1.0, np.nan, 1.0], seed=0)
+    assert j[1] == 0.0 and j.shape == (3,)
 
 
 def test_swarm_1d_one_offset_per_point_and_dodges_overlaps():

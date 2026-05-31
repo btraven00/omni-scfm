@@ -22,7 +22,6 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from omni_scfm.dashboard_data import (  # noqa: E402
     METRIC_LABELS,
-    add_swarm_offsets,
     leaderboard,
     load_scatter,
     load_scores,
@@ -31,6 +30,8 @@ from omni_scfm.dashboard_data import (  # noqa: E402
     per_perturbation,
     reproduction,
     reproduction_summary,
+    violin_density,
+    violin_jitter,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -195,30 +196,43 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
         chosen = st.selectbox("Example perturbation (highlight + scatter)", perts,
                               key=f"ex_{ds}")
         pp_ds["sel"] = pp_ds["perturbation"] == chosen
-        pp_ds = add_swarm_offsets(pp_ds, "l2", ["method"], bin_frac=0.035)
         morder = pp_ds.groupby("method")["l2"].mean().sort_values().index.tolist()
-
-        # (a) beeswarm of L2 per method. We place points at an explicit numeric x
-        # (method centre 0,1,2,… + the swarm offset normalised to ±0.42 of the band)
-        # rather than via xOffset:Q, which Altair doesn't expand to the band width —
-        # that was collapsing the swarm into vertical lines. Red segment = mean,
-        # orange = the chosen example perturbation.
         centers = {m: i for i, m in enumerate(morder)}
-        pp_ds["mx"] = pp_ds["method"].map(centers).astype(float)
-        norm = pp_ds.groupby("method")["swarm"].transform(
-            lambda s: s / (s.abs().max() or 1.0) * 0.42)
-        pp_ds["xpos"] = pp_ds["mx"] + norm
-        label_expr = "[" + ",".join(f"'{m}'" for m in morder) + "][datum.value]"
+
+        # (a) violin (KDE) per method with the raw perturbation points jittered on top.
+        # The jitter is random *inside the violin envelope* (wide where dense), which
+        # avoids the columnar alignment a swarm produces. Red segment = mean, orange =
+        # the chosen example. Everything is on an explicit numeric x (method centres),
+        # since Altair's xOffset:Q doesn't expand to the band width.
+        HW = 0.42
+        pp_ds["xpos"] = 0.0
+        viol = []
+        for m in morder:
+            mask = pp_ds["method"] == m
+            vals = pp_ds.loc[mask, "l2"].to_numpy()
+            g = violin_density(vals)
+            g["method"] = m
+            g["xL"] = centers[m] - g["dens"] * HW
+            g["xR"] = centers[m] + g["dens"] * HW
+            viol.append(g)
+            pp_ds.loc[mask, "xpos"] = centers[m] + violin_jitter(vals, halfwidth=HW,
+                                                                 seed=centers[m])
+        viol = pd.concat(viol, ignore_index=True)
         xscale = alt.Scale(domain=[-0.5, len(morder) - 0.5])
+        label_expr = "[" + ",".join(f"'{m}'" for m in morder) + "][datum.value]"
+        xaxis = alt.Axis(values=list(range(len(morder))), labelExpr=label_expr,
+                         labelAngle=-30, labelFontSize=12, grid=False, tickSize=0)
+
+        violin = alt.Chart(viol).mark_area(opacity=0.25, color="#6c8ebf").encode(
+            x=alt.X("xL:Q", scale=xscale, title=None, axis=None), x2="xR:Q",
+            y=alt.Y("y:Q", title="Prediction error (L2)"), detail="method:N")
         pts = alt.Chart(pp_ds).mark_circle().encode(
-            x=alt.X("xpos:Q", title=None, scale=xscale,
-                    axis=alt.Axis(values=list(range(len(morder))), labelExpr=label_expr,
-                                  labelAngle=-30, labelFontSize=12, grid=False, tickSize=0)),
-            y=alt.Y("l2:Q", title="Prediction error (L2)"),
+            x=alt.X("xpos:Q", title=None, scale=xscale, axis=xaxis),
+            y="l2:Q",
             color=alt.Color("sel:N", scale=alt.Scale(domain=[False, True],
                             range=["#9aa0a6", "orange"]), legend=None),
             size=alt.Size("sel:N", scale=alt.Scale(domain=[False, True],
-                          range=[28, 170]), legend=None),
+                          range=[26, 170]), legend=None),
             order=alt.Order("sel:N"),   # draw the orange point on top
             tooltip=["method", "perturbation", alt.Tooltip("l2:Q", format=".2f")],
         )
@@ -229,7 +243,8 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
         ], ignore_index=True)
         mean_layer = alt.Chart(mean_seg).mark_line(color="red", size=2).encode(
             x=alt.X("x:Q", scale=xscale), y="l2:Q", detail="method:N")
-        st.altair_chart((pts + mean_layer).properties(height=420), use_container_width=True)
+        st.altair_chart((violin + pts + mean_layer).properties(height=420),
+                        use_container_width=True)
 
         # (b) predicted-Δ vs observed-Δ scatter, one facet per method, for `chosen`
         if scatter_df is None:
