@@ -46,6 +46,14 @@ if not Path(scores_path).exists():
     st.stop()
 
 df = load_scores(scores_path)
+
+all_datasets = sorted(df["dataset"].unique())
+datasets_sel = st.sidebar.multiselect("Datasets", all_datasets, default=all_datasets)
+if not datasets_sel:
+    st.warning("Select at least one dataset.")
+    st.stop()
+df = df[df["dataset"].isin(datasets_sel)]
+
 metric = st.sidebar.selectbox("Metric", list(METRIC_LABELS), format_func=METRIC_LABELS.get)
 split = st.sidebar.selectbox("Split", ["test", "val", "train"], index=0)
 mlabel = METRIC_LABELS[metric]
