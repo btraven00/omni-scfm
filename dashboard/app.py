@@ -198,22 +198,38 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
         pp_ds = add_swarm_offsets(pp_ds, "l2", ["method"], bin_frac=0.035)
         morder = pp_ds.groupby("method")["l2"].mean().sort_values().index.tolist()
 
-        # (a) beeswarm of L2 per method; red tick = mean; orange = chosen perturbation
-        x = alt.X("method:N", sort=morder, title=None,
-                  axis=alt.Axis(labelAngle=-30, labelFontSize=12))
+        # (a) beeswarm of L2 per method. We place points at an explicit numeric x
+        # (method centre 0,1,2,… + the swarm offset normalised to ±0.42 of the band)
+        # rather than via xOffset:Q, which Altair doesn't expand to the band width —
+        # that was collapsing the swarm into vertical lines. Red segment = mean,
+        # orange = the chosen example perturbation.
+        centers = {m: i for i, m in enumerate(morder)}
+        pp_ds["mx"] = pp_ds["method"].map(centers).astype(float)
+        norm = pp_ds.groupby("method")["swarm"].transform(
+            lambda s: s / (s.abs().max() or 1.0) * 0.42)
+        pp_ds["xpos"] = pp_ds["mx"] + norm
+        label_expr = "[" + ",".join(f"'{m}'" for m in morder) + "][datum.value]"
+        xscale = alt.Scale(domain=[-0.5, len(morder) - 0.5])
         pts = alt.Chart(pp_ds).mark_circle().encode(
-            x=x, xOffset="swarm:Q",
+            x=alt.X("xpos:Q", title=None, scale=xscale,
+                    axis=alt.Axis(values=list(range(len(morder))), labelExpr=label_expr,
+                                  labelAngle=-30, labelFontSize=12, grid=False, tickSize=0)),
             y=alt.Y("l2:Q", title="Prediction error (L2)"),
             color=alt.Color("sel:N", scale=alt.Scale(domain=[False, True],
                             range=["#9aa0a6", "orange"]), legend=None),
             size=alt.Size("sel:N", scale=alt.Scale(domain=[False, True],
-                          range=[26, 150]), legend=None),
+                          range=[28, 170]), legend=None),
             order=alt.Order("sel:N"),   # draw the orange point on top
             tooltip=["method", "perturbation", alt.Tooltip("l2:Q", format=".2f")],
         )
-        mean_tick = alt.Chart(pp_ds).mark_tick(
-            color="red", thickness=2, size=34).encode(x=x, y="mean(l2):Q")
-        st.altair_chart((pts + mean_tick).properties(height=420), use_container_width=True)
+        means = pp_ds.groupby("method", as_index=False)["l2"].mean()
+        mean_seg = pd.concat([
+            pd.DataFrame({"method": m, "x": [centers[m] - 0.3, centers[m] + 0.3], "l2": [v, v]})
+            for m, v in zip(means["method"], means["l2"])
+        ], ignore_index=True)
+        mean_layer = alt.Chart(mean_seg).mark_line(color="red", size=2).encode(
+            x=alt.X("x:Q", scale=xscale), y="l2:Q", detail="method:N")
+        st.altair_chart((pts + mean_layer).properties(height=420), use_container_width=True)
 
         # (b) predicted-Δ vs observed-Δ scatter, one facet per method, for `chosen`
         if scatter_df is None:
