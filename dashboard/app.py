@@ -195,7 +195,13 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
             continue
         perts = pp_ds.groupby("perturbation")["l2"].mean().sort_values(
             ascending=False).index.tolist()  # hardest first
-        chosen = st.selectbox("Example perturbation (highlight + scatter)", perts,
+        # A click on the beeswarm below lands here as a pending value; apply it to the
+        # selectbox's state *before* the widget is created (Streamlit forbids mutating
+        # a widget's state after instantiation), so the dropdown + scatter follow.
+        pending = st.session_state.pop(f"pending_{ds}", None)
+        if pending in perts:
+            st.session_state[f"ex_{ds}"] = pending
+        chosen = st.selectbox("Example perturbation (click a point below, or pick)", perts,
                               key=f"ex_{ds}")
         pp_ds["sel"] = pp_ds["perturbation"] == chosen
         morder = pp_ds.groupby("method")["l2"].mean().sort_values().index.tolist()
@@ -228,6 +234,8 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
         violin = alt.Chart(viol).mark_area(opacity=0.25, color="#6c8ebf").encode(
             x=alt.X("xL:Q", scale=xscale, title=None, axis=None), x2="xR:Q",
             y=alt.Y("y:Q", title="Prediction error (L2)"), detail="method:N")
+        click_sel = alt.selection_point(name="clickpert", fields=["perturbation"],
+                                        on="click", empty=False)
         pts = alt.Chart(pp_ds).mark_circle().encode(
             x=alt.X("xpos:Q", title=None, scale=xscale, axis=xaxis),
             y="l2:Q",
@@ -237,7 +245,7 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
                           range=[26, 170]), legend=None),
             order=alt.Order("sel:N"),   # draw the orange point on top
             tooltip=["method", "perturbation", alt.Tooltip("l2:Q", format=".2f")],
-        )
+        ).add_params(click_sel)
         means = pp_ds.groupby("method", as_index=False)["l2"].mean()
         mean_seg = pd.concat([
             pd.DataFrame({"method": m, "x": [centers[m] - 0.3, centers[m] + 0.3], "l2": [v, v]})
@@ -245,8 +253,19 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
         ], ignore_index=True)
         mean_layer = alt.Chart(mean_seg).mark_line(color="red", size=2).encode(
             x=alt.X("x:Q", scale=xscale, axis=None), y="l2:Q", detail="method:N")
-        st.altair_chart((violin + pts + mean_layer).properties(height=420),
-                        use_container_width=True)
+        event = st.altair_chart((violin + pts + mean_layer).properties(height=420),
+                                use_container_width=True, on_select="rerun",
+                                key=f"bee_{ds}_{metric}")
+        # A click on a point -> select that perturbation (sync the dropdown + scatter).
+        picked = None
+        sel = getattr(event, "selection", None) or {}
+        rows = sel.get("clickpert") if isinstance(sel, dict) else None
+        if rows:
+            last = rows[-1]
+            picked = last.get("perturbation") if isinstance(last, dict) else last
+        if picked and picked in perts and picked != chosen:
+            st.session_state[f"pending_{ds}"] = picked
+            st.rerun()
 
         # (b) predicted-Δ vs observed-Δ scatter, one facet per method, for `chosen`
         if scatter_df is None:
