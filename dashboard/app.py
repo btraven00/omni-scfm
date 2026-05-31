@@ -93,30 +93,75 @@ else:
     st.altair_chart(chart, use_container_width=True)   # stretch full width
 
 # --- per-perturbation difficulty heatmap + hardest table --------------------
+# One tab per dataset: difficulty rankings only make sense within a dataset
+# (perturbations and gene panels differ), so we never mix datasets here.
 st.header("Per-perturbation difficulty")
 pp = per_perturbation(df, split=split, metric=metric)
 if pp.empty:
     st.info("No scored perturbations on this split.")
 else:
-    pert_order = pp.groupby("perturbation")[metric].mean().sort_values().index.tolist()
-    show_labels = len(pert_order) <= 40   # hide x labels when there are many (Norman)
-    heat = alt.Chart(pp).mark_rect().encode(
-        x=alt.X("perturbation:N", sort=pert_order, title="perturbation (hardest → easiest)",
-                axis=alt.Axis(labels=show_labels, labelAngle=-45, ticks=show_labels)),
-        y=alt.Y("method:N", title=None),
-        color=alt.Color(f"{metric}:Q", title=mlabel,
-                        scale=alt.Scale(scheme="redyellowgreen", domainMid=0)),
-        tooltip=["dataset", "perturbation", "method", alt.Tooltip(f"{metric}:Q", format=".3f")],
-    ).properties(height=24 * pp["method"].nunique() + 20)
-    if pp["dataset"].nunique() > 1:
-        heat = heat.facet(row="dataset:N")
-    st.altair_chart(heat, use_container_width=True)
+    datasets = sorted(pp["dataset"].unique())
+    for tab, ds in zip(st.tabs(datasets), datasets):
+        with tab:
+            ppd = pp[pp["dataset"] == ds]
+            pert_order = ppd.groupby("perturbation")[metric].mean().sort_values().index.tolist()
+            n_pert = len(pert_order)
+            show_labels = n_pert <= 40            # hide x labels when there are many (Norman)
+            # Explicit width per perturbation so every column is visible (a concat
+            # chart won't auto-fit to the container, and squeezing hides cells).
+            panel_w = max(900, 20 * n_pert)
 
-    st.subheader("Hardest perturbations")
-    ht = hardest_table(pp, metric=metric)
-    numcols = [c for c in ht.columns if c not in ("dataset", "perturbation")]
-    st.dataframe(ht.style.format({c: "{:.3f}" for c in numcols}),
-                 use_container_width=True, height=360)
+            # Two selections on `perturbation`, both sourced from the heatmap grid:
+            #   hover -> transient highlight (dims other points in the strip above)
+            #   pin   -> click to fix a perturbation; persists until cleared.
+            # The pin is pure client-side Vega state; the Clear button resets it by
+            # bumping a nonce in the chart key, which remounts the Vega view empty.
+            nonce_key = f"pin_nonce_{ds}"
+            st.session_state.setdefault(nonce_key, 0)
+            if st.button("Clear pinned perturbation", key=f"clear_{ds}"):
+                st.session_state[nonce_key] += 1
+
+            hover = alt.selection_point(fields=["perturbation"], on="pointerover",
+                                        clear="pointerout", empty=True)
+            pin = alt.selection_point(fields=["perturbation"], on="click",
+                                      toggle=False, clear=False, empty=False)
+            xp = alt.X("perturbation:N", sort=pert_order, title=None,
+                       axis=alt.Axis(labels=show_labels, labelAngle=-45, ticks=show_labels))
+
+            # top: each perturbation's score, one point per method. Hover dims the
+            # rest; the pinned perturbation's points are enlarged so it stays visible.
+            strip = alt.Chart(ppd).mark_circle().encode(
+                x=xp, xOffset=alt.XOffset("method:N"),
+                y=alt.Y(f"{metric}:Q", title=mlabel, scale=alt.Scale(zero=False)),
+                color=alt.Color("method:N", scale=alt.Scale(scheme="tableau10")),
+                opacity=alt.condition(hover, alt.value(0.95), alt.value(0.12)),
+                size=alt.condition(pin, alt.value(220), alt.value(80)),
+                tooltip=["perturbation", "method", alt.Tooltip(f"{metric}:Q", format=".3f")],
+            ).properties(height=300, width=panel_w, title=f"{mlabel} — {ds}")
+
+            # bottom: difficulty heatmap (hover + click source); pinned column outlined
+            heat = alt.Chart(ppd).mark_rect().encode(
+                x=alt.X("perturbation:N", sort=pert_order, title="perturbation (hardest → easiest)",
+                        axis=alt.Axis(labels=show_labels, labelAngle=-45, ticks=show_labels)),
+                y=alt.Y("method:N", title=None),
+                color=alt.Color(f"{metric}:Q", title=mlabel,
+                                scale=alt.Scale(scheme="redyellowgreen", domainMid=0)),
+                stroke=alt.condition(pin, alt.value("#111"), alt.value("#fff")),
+                strokeWidth=alt.condition(pin, alt.value(2.5), alt.value(0.4)),
+                tooltip=["dataset", "perturbation", "method", alt.Tooltip(f"{metric}:Q", format=".3f")],
+            ).add_params(hover, pin).properties(height=64 * ppd["method"].nunique() + 30, width=panel_w)
+
+            st.altair_chart(
+                alt.vconcat(strip, heat).resolve_scale(x="shared", color="independent"),
+                use_container_width=False,
+                key=f"diff_{ds}_{metric}_{split}_{st.session_state[nonce_key]}",
+            )
+
+            st.subheader("Hardest perturbations")
+            ht = hardest_table(ppd, metric=metric).drop(columns="dataset")
+            numcols = [c for c in ht.columns if c != "perturbation"]
+            st.dataframe(ht.style.format({c: "{:.3f}" for c in numcols}),
+                         use_container_width=True, height=360)
 
 # --- method-vs-method per-perturbation comparison ---------------------------
 if n_methods >= 2:
