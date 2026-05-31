@@ -415,13 +415,24 @@ with tab_ext:
                 f"(n={len(g)}). R²δ higher = easier, so negative ρ ⇒ central genes harder; "
                 f"if the partial ≈ 0 while ρ-with-L2 is strong, it's a magnitude confound.")
             xscale = alt.Scale(type="symlog") if logx else alt.Scale()
-            pt = alt.Chart(g).mark_circle(size=80, opacity=0.6).encode(
-                x=alt.X("cent:Q", title=f"{measure} (max over the pair's genes)", scale=xscale),
-                y=alt.Y("R2d:Q", title="R²δ (mean over methods; higher = easier)"),
+            enc_x = alt.X("cent:Q", title=f"{measure} (max over the pair's genes)", scale=xscale)
+            base_c = alt.Chart(g)
+            pts_c = base_c.mark_circle(size=80, opacity=0.6).encode(
+                x=enc_x, y=alt.Y("R2d:Q", title="R²δ (mean over methods; higher = easier)"),
                 size=alt.Size("L2:Q", title="L2 (magnitude)"),
                 tooltip=["perturbation", alt.Tooltip("cent:Q", format=".2f"),
                          alt.Tooltip("R2d:Q", format=".3f"), alt.Tooltip("L2:Q", format=".2f")],
             )
-            st.altair_chart(pt.properties(height=420).interactive(), use_container_width=True)
+            trend_c = base_c.transform_loess("cent", "R2d").mark_line(color="#e45756", size=2)
+            hard = g.nsmallest(min(8, len(g)), "R2d")        # label the hardest perturbations
+            labels_c = alt.Chart(hard).mark_text(align="left", dx=6, dy=-4, fontSize=10,
+                                                 color="#555").encode(
+                x=enc_x, y="R2d:Q", text="perturbation")
+            title = (f"ρ(centrality, R²δ) = {r_cd:+.2f}    "
+                     f"partial(| L2) = {partial:+.2f}    n = {len(g)}    "
+                     "(red = loess trend; labels = hardest)")
+            st.altair_chart((pts_c + trend_c + labels_c)
+                            .properties(height=420, title=title).interactive(),
+                            use_container_width=True)
             cov = perturbation_centrality(g["perturbation"], centrality, measure, "max").notna().mean()
             st.caption(f"OmniPath coverage of {cds} perturbations: {cov*100:.0f}%.")
