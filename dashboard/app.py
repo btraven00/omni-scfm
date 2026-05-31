@@ -242,7 +242,7 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
             for m, v in zip(means["method"], means["l2"])
         ], ignore_index=True)
         mean_layer = alt.Chart(mean_seg).mark_line(color="red", size=2).encode(
-            x=alt.X("x:Q", scale=xscale), y="l2:Q", detail="method:N")
+            x=alt.X("x:Q", scale=xscale, axis=None), y="l2:Q", detail="method:N")
         st.altair_chart((violin + pts + mean_layer).properties(height=420),
                         use_container_width=True)
 
