@@ -34,10 +34,12 @@ def load_scatter(path: str) -> pd.DataFrame:
 def _swarm_1d(y: np.ndarray, bin_frac: float = 0.02, dx: float = 1.0) -> np.ndarray:
     """Beeswarm x-offsets for 1-D `y` (Altair has no native beeswarm).
 
-    Bins y into rows ~`bin_frac` of the value range tall, then dodges points within
-    each row symmetrically about 0 (…, -dx, 0, +dx, …) so they don't overlap. Returns
-    one offset per input point, in input order. Deterministic; offsets are in arbitrary
-    units the caller scales via xOffset.
+    Classic swarm placement: take points in y order and give each the x-offset of
+    smallest magnitude that doesn't collide (stay `d` apart) with any already-placed
+    point within `d` in y, where `d = bin_frac * y-range` is the collision diameter.
+    Dense bands fan out horizontally; isolated points sit on the centre line. Returns
+    one offset per input point, in input order; magnitude is in y-units (Altair's
+    xOffset scale fits the spread to the band, so only relative width matters).
     """
     y = np.asarray(y, dtype=float)
     n = y.size
@@ -46,18 +48,23 @@ def _swarm_1d(y: np.ndarray, bin_frac: float = 0.02, dx: float = 1.0) -> np.ndar
         return offsets
     finite = y[np.isfinite(y)]
     span = (finite.max() - finite.min()) if finite.size else 0.0
-    h = span * bin_frac if span > 0 else 1.0
-    order = np.argsort(y, kind="stable")
-    bins: dict[int, int] = {}
-    for idx in order:
+    d = span * bin_frac if span > 0 else 1.0
+    placed: list[tuple[float, float]] = []           # (y, x) already positioned
+    for idx in np.argsort(y, kind="stable"):
         yi = y[idx]
-        b = int(np.floor(yi / h)) if np.isfinite(yi) else 0
-        k = bins.get(b, 0)                       # how many already placed in this row
-        # symmetric dodge: 0, +1, -1, +2, -2, ...
-        step = (k + 1) // 2
-        sign = 1 if k % 2 == 1 else -1
-        offsets[idx] = 0.0 if k == 0 else sign * step * dx
-        bins[b] = k + 1
+        if not np.isfinite(yi):
+            continue
+        near = [px for (py, px) in placed if abs(yi - py) < d]
+        if not near:
+            xi = 0.0
+        else:
+            # smallest-|x| candidate that clears every near point by >= d
+            cands = sorted({0.0, *(px + s * d for px in near for s in (-1, 1))},
+                           key=lambda v: (abs(v), v))
+            xi = next(c for c in cands
+                      if all(abs(c - px) >= d - 1e-9 for px in near))
+        placed.append((yi, xi))
+        offsets[idx] = xi * dx
     return offsets
 
 

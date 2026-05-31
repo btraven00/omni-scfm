@@ -195,7 +195,7 @@ for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
         chosen = st.selectbox("Example perturbation (highlight + scatter)", perts,
                               key=f"ex_{ds}")
         pp_ds["sel"] = pp_ds["perturbation"] == chosen
-        pp_ds = add_swarm_offsets(pp_ds, "l2", ["method"])
+        pp_ds = add_swarm_offsets(pp_ds, "l2", ["method"], bin_frac=0.035)
         morder = pp_ds.groupby("method")["l2"].mean().sort_values().index.tolist()
 
         # (a) beeswarm of L2 per method; red tick = mean; orange = chosen perturbation
