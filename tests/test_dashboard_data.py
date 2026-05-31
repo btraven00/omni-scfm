@@ -12,14 +12,39 @@ from omni_scfm.dashboard_data import (
     add_swarm_offsets,
     hardest_table,
     leaderboard,
+    load_centrality,
     load_published,
     method_comparison,
     per_perturbation,
+    perturbation_centrality,
     reproduction,
     reproduction_summary,
     violin_density,
     violin_jitter,
 )
+
+
+def test_load_centrality_skips_provenance_header(tmp_path):
+    p = tmp_path / "gene_centrality.csv"
+    p.write_text("# omnipath=1.0.12 graph=10n/20e\n"
+                 "gene,in_omnipath,out_degree,betweenness\n"
+                 "A,True,10,0.5\nB,True,5,0.1\n")
+    c = load_centrality(str(p))
+    assert c.index.name == "gene" and list(c.index) == ["A", "B"]
+    assert c.loc["A", "out_degree"] == 10
+
+
+def test_perturbation_centrality_aggregates_and_handles_missing():
+    cent = pd.DataFrame({"out_degree": [10.0, 5.0]}, index=["A", "B"])
+    cent.index.name = "gene"
+    perts = ["A+B", "A+ctrl", "X+Y"]
+    mx = perturbation_centrality(perts, cent, measure="out_degree", agg="max")
+    sm = perturbation_centrality(perts, cent, measure="out_degree", agg="sum")
+    assert mx["A+B"] == 10 and sm["A+B"] == 15          # aggregate the two genes
+    assert mx["A+ctrl"] == 10                            # ctrl dropped -> just A
+    assert pd.isna(mx["X+Y"])                            # both absent from OmniPath -> NaN
+    # unknown measure -> NaN, not a crash
+    assert pd.isna(perturbation_centrality(["A+B"], cent, measure="nope")["A+B"])
 
 
 def test_violin_density_peak_normalised_and_on_grid():

@@ -49,6 +49,35 @@ def load_published(path) -> pd.DataFrame:
     return df
 
 
+# OmniPath gene centralities (our extension, not in the paper). Produced by
+# scripts/gene_centrality.py -> data/gene_centrality.csv (a '#' provenance header
+# then per-gene columns: out_degree, in_degree, degree, pagerank, betweenness).
+CENTRALITY_MEASURES = ["out_degree", "in_degree", "degree", "pagerank", "betweenness"]
+
+
+def load_centrality(path: str) -> pd.DataFrame:
+    """Per-gene OmniPath centralities, indexed by gene (skips the '#' header)."""
+    return pd.read_csv(path, comment="#").set_index("gene")
+
+
+def perturbation_centrality(perturbations, centrality: pd.DataFrame,
+                            measure: str = "out_degree", agg: str = "max") -> pd.Series:
+    """Aggregate a gene-level centrality `measure` up to each perturbation.
+
+    Splits a perturbation name on '+' (dropping ctrl), looks up each gene's
+    `measure`, and combines with `agg` (max/sum/mean) — "max" answers "does this
+    pair contain a hub". Genes absent from OmniPath are ignored; all-absent -> NaN.
+    """
+    col = centrality[measure] if measure in centrality.columns else pd.Series(dtype=float)
+    aggf = {"max": max, "sum": sum, "mean": lambda v: sum(v) / len(v)}[agg]
+    out = {}
+    for p in perturbations:
+        genes = [g for g in str(p).split("+") if g and g != "ctrl"]
+        vals = [v for v in (col.get(g, float("nan")) for g in genes) if v == v]  # drop NaN
+        out[p] = aggf(vals) if vals else float("nan")
+    return pd.Series(out, name=f"{measure}_{agg}")
+
+
 def _swarm_1d(y: np.ndarray, bin_frac: float = 0.02, dx: float = 1.0) -> np.ndarray:
     """Beeswarm x-offsets for 1-D `y` (Altair has no native beeswarm).
 

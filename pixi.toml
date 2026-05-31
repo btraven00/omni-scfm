@@ -90,6 +90,21 @@ session-info = "*"
 [feature.gears-gpu.tasks]
 gears-gpu-postinstall = "python -m pip install cell-gears==0.1.2"
 
+# omnipath: analysis-only env for the one-time OmniPath fetch + centrality compute
+# (scripts/gene_centrality.py -> data/gene_centrality.csv). Kept separate so the
+# fetch's deps never touch the bit-exact gears env; the dashboard reads the cached
+# CSV and needs none of this at serve time.
+[feature.omnipath.dependencies]
+python = "3.12.*"
+networkx = ">=3"
+pandas = ">=2.2"
+scipy = "*"          # networkx pagerank needs it
+pyarrow = "*"
+pip = "*"
+
+[feature.omnipath.pypi-dependencies]
+omnipath = "*"
+
 # pixi (unlike conda) doesn't auto-detect the CUDA driver, so the conda-forge
 # `pytorch-gpu` build won't resolve without declaring CUDA is available. (On the
 # GPU box, OB's `conda --use-conda` build of envs/gears-gpu.yml detects __cuda
@@ -127,6 +142,7 @@ omnidata = { features = ["omnidata"] }
 r = { features = ["r"] }
 gears = { features = ["gears"] }
 gears-gpu = { features = ["gears-gpu"] }
+omnipath = { features = ["omnipath"] }
 dashboard = { features = ["base", "dashboard"] }
 
 # --- env export tasks: pixi -> envs/*.yml that benchmark.yaml references -----
