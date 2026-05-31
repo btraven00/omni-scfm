@@ -72,6 +72,10 @@ fi
 cfg="config"; rid="result"
 cp "$split" "$wd/results/$cfg"
 
+# TODO: instrument with obkit — emit events around the phases (data load + graph
+# build, per-epoch train, test/predict) so they surface as stage annotations
+# instead of being measured by hand. Timed once on a laptop RTX 2000 (8GB) for
+# full norman: build ~85s, ~329s/epoch, ~1.9h for the default 20 epochs/seed.
 ( cd "$wd" && python "$WRAPPER" \
     --dataset_name "$gname" --test_train_config_id "$cfg" \
     --working_dir "$wd" --result_id "$rid" --seed "$seed" --epochs "$EPOCHS" )
