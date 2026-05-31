@@ -10,3 +10,4 @@ entrypoints:
   mean: modules/methods/mean/run.sh
   lpm: modules/methods/lpm/run.sh
   additive: modules/methods/additive/run.sh
+  gears: modules/methods/gears/run.sh
