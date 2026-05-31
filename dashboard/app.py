@@ -389,9 +389,12 @@ with tab_ext:
         st.info(f"No `{Path(centrality_path).name}` — run `pixi run -e omnipath "
                 "python scripts/gene_centrality.py` to enable this.")
     else:
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns([2, 2, 2])
         cds = c1.selectbox("dataset", datasets_sel, key="cent_ds")
         measure = c2.selectbox("centrality measure", CENTRALITY_MEASURES, key="cent_measure")
+        # symlog (not log) for the heavy-tailed centrality axis: it's log-like but keeps
+        # the zeros (out_degree/betweenness = 0). Spearman is rank-based so unaffected.
+        logx = c3.checkbox("log-scale centrality (symlog)", value=True, key="cent_logx")
         d = df[(df["dataset"] == cds) & (df["split"] == split)].dropna(subset=["pearson_delta"])
         g = (d.groupby("perturbation")
              .agg(R2d=("pearson_delta", "mean"), L2=("l2", "mean")).reset_index())
@@ -411,8 +414,9 @@ with tab_ext:
                 f"= **{r_cl:+.2f}**  ·  partial ρ(centrality, R²δ | L2) = **{partial:+.2f}**  "
                 f"(n={len(g)}). R²δ higher = easier, so negative ρ ⇒ central genes harder; "
                 f"if the partial ≈ 0 while ρ-with-L2 is strong, it's a magnitude confound.")
+            xscale = alt.Scale(type="symlog") if logx else alt.Scale()
             pt = alt.Chart(g).mark_circle(size=80, opacity=0.6).encode(
-                x=alt.X("cent:Q", title=f"{measure} (max over the pair's genes)"),
+                x=alt.X("cent:Q", title=f"{measure} (max over the pair's genes)", scale=xscale),
                 y=alt.Y("R2d:Q", title="R²δ (mean over methods; higher = easier)"),
                 size=alt.Size("L2:Q", title="L2 (magnitude)"),
                 tooltip=["perturbation", alt.Tooltip("cent:Q", format=".2f"),
