@@ -1,0 +1,29 @@
+name: gears-gpu
+channels:
+- conda-forge
+- bioconda
+# Same pinned stack as gears.yml (cell-gears 0.1.2 needs numpy 1.26 / the
+# scipy+pandas it was built against) but the CUDA pytorch build: `pytorch-gpu`
+# is the conda-forge selector that pulls the GPU-enabled pytorch instead of the
+# CPU one. Used by the GEARS method (run_gears.py hardcodes device='cuda').
+# Kept separate from gears.yml so additive's bit-exact CPU env is undisturbed.
+dependencies:
+- python 3.10.*
+- pip
+- pytorch-gpu 2.3.*
+- pytorch_geometric 2.5.*
+- numpy 1.26.*
+- pandas >=2.2
+- scanpy 1.10.*
+- anndata >=0.10
+- scikit-learn >=1.5
+- scipy >=1.11
+- networkx >=3
+- h5py
+- tqdm
+- dcor
+- requests
+- typing_extensions
+- session-info
+- pip:
+  - cell-gears==0.1.2

@@ -22,9 +22,24 @@ from omni_scfm.metrics import (
     ("ctrl", "ctrl"),
     ("A+B", "A+B"),
     ("GENE_ctrl", "GENE+ctrl"),
+    # GEARS emits condition keys joined with '_' (and bare gene names for
+    # singles); these must normalise to the same '+'-joined form as the
+    # ground truth so predictions join correctly. See run_gears.py output.
+    ("AHR_FEV", "AHR+FEV"),         # underscore-joined double
+    ("BAK1_BCL2L11", "BAK1+BCL2L11"),
+    ("AHR", "AHR+ctrl"),            # bare single-gene perturbation
+    ("ctrl_ctrl", "ctrl"),          # all-control collapses
 ])
 def test_normalize_condition(raw, expected):
     assert normalize_condition(raw) == expected
+
+
+def test_normalize_condition_order_preserved_not_sorted():
+    """normalize_condition must NOT reorder genes — 'A+B' and 'B+A' stay distinct
+    as written (canonicalisation/sorting happens upstream in preprocess, not here),
+    so GEARS keys map 1:1 to how the split/ground-truth name them."""
+    assert normalize_condition("FEV_AHR") == "FEV+AHR"
+    assert normalize_condition("AHR_FEV") == "AHR+FEV"
 
 
 def test_top_expressed_genes_by_descending_baseline():

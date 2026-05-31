@@ -64,6 +64,39 @@ session-info = "*"
 # above, so plain pip install just adds the wheel (matches OB's envs/gears.yml).
 gears-postinstall = "python -m pip install cell-gears==0.1.2"
 
+# gears-gpu: identical pinned stack as `gears` (so cell-gears 0.1.2 is happy) but
+# the CUDA pytorch build (`pytorch-gpu` selector) for the GEARS method, which
+# hardcodes device='cuda' and trains a GNN. Kept separate so the bit-exact CPU
+# `gears` env (additive) is untouched. Mirror: envs/gears-gpu.yml.
+[feature.gears-gpu.dependencies]
+python = "3.10.*"
+pip = "*"
+pytorch-gpu = "2.3.*"
+pytorch_geometric = "2.5.*"
+numpy = "1.26.*"
+pandas = ">=2.2"
+scanpy = "1.10.*"
+anndata = ">=0.10"
+scikit-learn = ">=1.5"
+scipy = ">=1.11"
+networkx = ">=3"
+h5py = "*"
+tqdm = "*"
+dcor = "*"
+requests = "*"
+typing_extensions = "*"
+session-info = "*"
+
+[feature.gears-gpu.tasks]
+gears-gpu-postinstall = "python -m pip install cell-gears==0.1.2"
+
+# pixi (unlike conda) doesn't auto-detect the CUDA driver, so the conda-forge
+# `pytorch-gpu` build won't resolve without declaring CUDA is available. (On the
+# GPU box, OB's `conda --use-conda` build of envs/gears-gpu.yml detects __cuda
+# itself, so this is only needed for local pixi installs.)
+[feature.gears-gpu.system-requirements]
+cuda = "12"
+
 # r: Bioconductor env to run the paper's R scripts verbatim (mean, lpm, ...).
 # Reads .h5ad via picklerick (native Rust->R, no basilisk/Python); zellkonverter
 # stays installed only so the scripts' `zellkonverter::readH5AD` resolves —
@@ -93,6 +126,7 @@ default = { features = ["base"] }
 omnidata = { features = ["omnidata"] }
 r = { features = ["r"] }
 gears = { features = ["gears"] }
+gears-gpu = { features = ["gears-gpu"] }
 dashboard = { features = ["base", "dashboard"] }
 
 # --- env export tasks: pixi -> envs/*.yml that benchmark.yaml references -----
