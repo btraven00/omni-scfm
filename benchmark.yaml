@@ -25,8 +25,12 @@ software_environments:
     conda: envs/r.yml
   gears:
     name: GEARS env (paper-pinned)
-    description: cell-gears 0.1.2 etc.; GO-filtered split + the GEARS method
+    description: cell-gears 0.1.2 etc.; GO-filtered split + the additive method
     conda: envs/gears.yml
+  gears-gpu:
+    name: GEARS GPU env (paper-pinned + CUDA torch)
+    description: gears stack with pytorch-gpu for the GEARS method (trains on cuda)
+    conda: envs/gears-gpu.yml
 
 stages:
   # 1. Download raw data (reproducible, via the omni-data remote module).
