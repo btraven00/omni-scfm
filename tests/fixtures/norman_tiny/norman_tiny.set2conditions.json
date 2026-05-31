@@ -1,0 +1,22 @@
+{
+  "train": [
+    "ctrl",
+    "AHR+ctrl",
+    "BAK1+ctrl",
+    "BCL2L11+ctrl",
+    "FEV+ctrl",
+    "KLF1+ctrl",
+    "TGFBR2+ctrl",
+    "TMSB4X+ctrl",
+    "AHR+FEV",
+    "AHR+KLF1",
+    "BAK1+BCL2L11"
+  ],
+  "val": [
+    "BAK1+KLF1"
+  ],
+  "test": [
+    "BAK1+TMSB4X",
+    "BCL2L11+TGFBR2"
+  ]
+}

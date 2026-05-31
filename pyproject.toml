@@ -20,3 +20,6 @@ packages = ["src/omni_scfm"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+    "integration: runs a method's run.sh end-to-end in its conda/pixi env (skips if the env is absent)",
+]
