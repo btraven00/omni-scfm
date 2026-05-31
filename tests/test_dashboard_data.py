@@ -7,10 +7,12 @@ import pandas as pd
 import pytest
 
 from omni_scfm.dashboard_data import (
+    PUBLISHED_METHOD_ALIASES,
     _swarm_1d,
     add_swarm_offsets,
     hardest_table,
     leaderboard,
+    load_published,
     method_comparison,
     per_perturbation,
     reproduction,
@@ -92,6 +94,36 @@ def test_leaderboard_ranks_by_median_test():
 def test_leaderboard_excludes_other_splits():
     lb = leaderboard(_scores(), split="test")
     assert lb[lb["method"] == "mean"]["n"].iloc[0] == 2   # the train row excluded
+
+
+def test_load_published_concats_and_aliases(tmp_path):
+    single = tmp_path / "published_single.csv"
+    double = tmp_path / "published_double.csv"
+    pd.DataFrame([{"dataset": "adamson", "seed": 1, "method": "mean",
+                   "perturbation": "A+ctrl", "l2": 1.0}]).to_csv(single, index=False)
+    pd.DataFrame([{"dataset": "norman_from_scfoundation", "seed": 1,
+                   "method": "additive_model", "perturbation": "A+B", "l2": 2.0}]
+                 ).to_csv(double, index=False)
+    pub = load_published([str(single), str(double)])
+    assert len(pub) == 2                                  # both files concatenated
+    assert "additive_model" in PUBLISHED_METHOD_ALIASES
+    assert set(pub["method"]) == {"mean", "additive"}     # additive_model -> additive
+    # single path (not a list) also works
+    assert len(load_published(str(single))) == 1
+
+
+def test_reproduction_joins_double_pert_after_alias(tmp_path):
+    scores = pd.DataFrame([
+        {"dataset": "norman_from_scfoundation", "seed": 1, "method": "additive",
+         "perturbation": "A+B", "split": "test", "pearson_delta": 0.90, "l2": 4.0},
+    ])
+    double = tmp_path / "published_double.csv"
+    pd.DataFrame([{"dataset": "norman_from_scfoundation", "seed": 1,
+                   "method": "additive_model", "perturbation": "A+B",
+                   "pearson_delta": 0.9000004, "l2": 4.0}]).to_csv(double, index=False)
+    rep = reproduction(scores, load_published([str(double)]))
+    assert len(rep) == 1                                  # additive <-> additive_model joined
+    assert rep["abs_diff"].max() < 1e-6
 
 
 def test_reproduction_join_and_summary():

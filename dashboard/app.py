@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from omni_scfm.dashboard_data import (  # noqa: E402
     METRIC_LABELS,
     leaderboard,
+    load_published,
     load_scatter,
     load_scores,
     hardest_table,
@@ -38,6 +39,7 @@ REPO = Path(__file__).resolve().parents[1]
 DEFAULT_SCORES = REPO / "out" / "scores.parquet"
 DEFAULT_SCATTER = REPO / "out" / "scatter.parquet"
 DEFAULT_PUBLISHED = REPO / "scratch" / "published" / "published_single.csv"
+DEFAULT_PUBLISHED_DOUBLE = REPO / "scratch" / "published" / "published_double.csv"
 
 st.set_page_config(page_title="omni-scfm", layout="wide")
 st.title("omni-scfm — perturbation prediction benchmark")
@@ -320,13 +322,18 @@ if n_methods >= 2:
         st.altair_chart((diag + sc).properties(height=460).interactive(), use_container_width=True)
 
 # --- reproduction vs published ---------------------------------------------
+# Compare our numbers to the paper's, for single- AND double-perturbation
+# datasets at once: the single table covers adamson, the double table covers
+# norman_from_scfoundation (method names normalised to our ids in load_published).
 st.header("Reproduction vs published")
-pub_path = st.sidebar.text_input("published reference (csv)", str(DEFAULT_PUBLISHED))
-if not Path(pub_path).exists():
+pub_single = st.sidebar.text_input("published single (csv)", str(DEFAULT_PUBLISHED))
+pub_double = st.sidebar.text_input("published double (csv)", str(DEFAULT_PUBLISHED_DOUBLE))
+pub_paths = [p for p in (pub_single, pub_double) if Path(p).exists()]
+if not pub_paths:
     st.info("No published reference found — run `python scripts/extract_published_numbers.py` "
             "to enable the ours-vs-paper overlay.")
 else:
-    published = pd.read_csv(pub_path)
+    published = load_published(pub_paths)
     rep = reproduction(df, published, metric=metric)
     if rep.empty:
         st.info("No overlapping (dataset, method, perturbation) between scores and published.")

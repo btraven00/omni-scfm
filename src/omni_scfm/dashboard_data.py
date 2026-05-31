@@ -31,6 +31,24 @@ def load_scatter(path: str) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
+# The paper's per-perturbation source tables name a few methods differently from
+# our module ids. Single-pert names already match (mean, lpm_selftrained, gears, …);
+# only the double-pert table diverges (e.g. additive_model). Map paper -> our id so
+# the reproduction join lines up. (no_change has no counterpart in our method set —
+# our `mean` is the train-mean baseline, not predict-control — so it stays unmapped.)
+PUBLISHED_METHOD_ALIASES = {"additive_model": "additive"}
+
+
+def load_published(path) -> pd.DataFrame:
+    """Load one or more published-reference CSVs (single and/or double), with the
+    paper's method names normalised to our module ids (see PUBLISHED_METHOD_ALIASES)."""
+    paths = path if isinstance(path, (list, tuple)) else [path]
+    df = pd.concat([pd.read_csv(p) for p in paths], ignore_index=True)
+    if "method" in df.columns:
+        df["method"] = df["method"].replace(PUBLISHED_METHOD_ALIASES)
+    return df
+
+
 def _swarm_1d(y: np.ndarray, bin_frac: float = 0.02, dx: float = 1.0) -> np.ndarray:
     """Beeswarm x-offsets for 1-D `y` (Altair has no native beeswarm).
 
