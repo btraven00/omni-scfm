@@ -86,10 +86,32 @@ DEFAULT_PUBLISHED_DOUBLE = _src(REPO / "scratch" / "published" / "published_doub
 DEFAULT_CENTRALITY = _src(REPO / "data" / "gene_centrality.csv", "reference/gene_centrality.csv")
 
 st.set_page_config(page_title="omni-scfm", layout="wide")
-st.title("omni-scfm — perturbation prediction benchmark")
-st.caption("Reproduction of Ahlmann-Eltze, Huber & Anders (Nat Methods 2025) + extensions")
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap');
+    .omni-title { font-family: 'Fraunces', Georgia, serif; font-size: 3.4rem;
+                  font-weight: 600; letter-spacing: -0.015em; line-height: 1.05;
+                  margin: 0.2rem 0 0.15rem; }
+    .omni-sub   { font-family: 'Fraunces', Georgia, serif; font-size: 1.35rem;
+                  font-weight: 400; color: #6b7280; margin: 0 0 1.1rem; }
+    .omni-sub a { color: #4b5fa6; text-decoration: none; border-bottom: 1px solid #c7cee6; }
+    .omni-sub a:hover { color: #2f3f80; }
+    </style>
+    <div class="omni-title">omni-scfm</div>
+    <div class="omni-sub">Reproduction of Ahlmann-Eltze, Huber &amp; Anders
+        (<a href="https://doi.org/10.1038/s41592-025-02772-6" target="_blank">Nat&nbsp;Methods&nbsp;2025</a>)
+        + extensions</div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # --- sidebar inputs (shared by both tabs) -----------------------------------
+st.sidebar.markdown(
+    "<div style='font-size:0.95rem; margin-bottom:0.6rem;'>⚡ powered by "
+    "<a href='https://omnibenchmark.org' target='_blank'>OmniBenchmark</a></div>",
+    unsafe_allow_html=True,
+)
 scores_path = st.sidebar.text_input("scores.parquet", str(DEFAULT_SCORES))
 scores_local = _localize(scores_path)
 if scores_local is None:
@@ -133,13 +155,7 @@ tab_repro, tab_ext = st.tabs(["📄 Paper reproduction", "🧪 Extensions"])
 # Paper reproduction
 # ============================================================================
 with tab_repro:
-    # --- leaderboard --------------------------------------------------------
-    st.header("Leaderboard")
-    st.dataframe(
-        lb.style.format({"median": "{:.3f}", "mean": "{:.3f}", "std": "{:.3f}"}),
-        use_container_width=True,
-    )
-
+    # (leaderboard table removed; `lb`/`order` still drive the chart sort below)
     # --- per-method distribution (the paper's main panel) -------------------
     st.header(f"{mlabel} on held-out ({split}) perturbations")
     if sub.empty:
@@ -169,16 +185,17 @@ with tab_repro:
     # Reproduces the paper's double-pert figure: (a) violin/beeswarm of L2 error
     # per method, (b) per-method predicted-Δ vs observed-Δ scatter for one example
     # perturbation. Click a point (or use the dropdown) to drive the scatter.
-    st.header("Double-perturbation prediction error")
-    ppl2 = per_perturbation(df, split="test", metric="l2")
+    st.header(f"Double-perturbation prediction — {mlabel}")
+    harder_high = metric == "l2"   # L2: higher = harder; pearson*: higher = easier
+    ppm = per_perturbation(df, split=split, metric=metric)
     for tab, ds in zip(st.tabs(datasets_sel), datasets_sel):
         with tab:
-            pp_ds = ppl2[ppl2["dataset"] == ds].copy()
+            pp_ds = ppm[ppm["dataset"] == ds].copy()
             if pp_ds.empty:
-                st.info("No scored test perturbations for this dataset.")
+                st.info(f"No scored {split} perturbations for this dataset.")
                 continue
-            perts = pp_ds.groupby("perturbation")["l2"].mean().sort_values(
-                ascending=False).index.tolist()  # hardest first
+            perts = pp_ds.groupby("perturbation")[metric].mean().sort_values(
+                ascending=not harder_high).index.tolist()  # hardest first
             # A click on the beeswarm lands here as a pending value; apply it to the
             # selectbox's state *before* the widget is created (Streamlit forbids
             # mutating a widget's state after instantiation), so dropdown + scatter follow.
@@ -188,7 +205,8 @@ with tab_repro:
             chosen = st.selectbox("Example perturbation (click a point below, or pick)",
                                   perts, key=f"ex_{ds}")
             pp_ds["sel"] = pp_ds["perturbation"] == chosen
-            morder = pp_ds.groupby("method")["l2"].mean().sort_values().index.tolist()
+            morder = pp_ds.groupby("method")[metric].mean().sort_values(
+                ascending=harder_high).index.tolist()   # best method first
             centers = {m: i for i, m in enumerate(morder)}
 
             # (a) violin (KDE) per method with raw points jittered inside the envelope
@@ -199,7 +217,7 @@ with tab_repro:
             viol = []
             for m in morder:
                 mask = pp_ds["method"] == m
-                vals = pp_ds.loc[mask, "l2"].to_numpy()
+                vals = pp_ds.loc[mask, metric].to_numpy()
                 g = violin_density(vals)
                 g["method"] = m
                 g["xL"] = centers[m] - g["dens"] * HW
@@ -210,31 +228,34 @@ with tab_repro:
             viol = pd.concat(viol, ignore_index=True)
             xscale = alt.Scale(domain=[-0.5, len(morder) - 0.5])
             label_expr = "[" + ",".join(f"'{m}'" for m in morder) + "][datum.value]"
+            # the labelled method axis lives on the FIRST (violin) layer — a later
+            # layer's axis gets dropped when Altair merges the shared x scale.
             xaxis = alt.Axis(values=list(range(len(morder))), labelExpr=label_expr,
-                             labelAngle=-30, labelFontSize=12, grid=False, tickSize=0)
+                             labelAngle=-30, labelFontSize=12, grid=False, tickSize=0, title=None)
 
             violin = alt.Chart(viol).mark_area(opacity=0.25, color="#6c8ebf").encode(
-                x=alt.X("xL:Q", scale=xscale, title=None, axis=None), x2="xR:Q",
-                y=alt.Y("y:Q", title="Prediction error (L2)"), detail="method:N")
+                x=alt.X("xL:Q", scale=xscale, axis=xaxis), x2="xR:Q",
+                y=alt.Y("y:Q", title=mlabel), detail="method:N")
             click_sel = alt.selection_point(name="clickpert", fields=["perturbation"],
                                             on="click", empty=False)
             pts = alt.Chart(pp_ds).mark_circle().encode(
-                x=alt.X("xpos:Q", title=None, scale=xscale, axis=xaxis),
-                y="l2:Q",
+                x=alt.X("xpos:Q", title=None, scale=xscale, axis=None),
+                y=alt.Y(f"{metric}:Q", title=mlabel),
                 color=alt.Color("sel:N", scale=alt.Scale(domain=[False, True],
                                 range=["#9aa0a6", "orange"]), legend=None),
                 size=alt.Size("sel:N", scale=alt.Scale(domain=[False, True],
                               range=[26, 170]), legend=None),
                 order=alt.Order("sel:N"),
-                tooltip=["method", "perturbation", alt.Tooltip("l2:Q", format=".2f")],
+                tooltip=["method", "perturbation", alt.Tooltip(f"{metric}:Q", format=".3f")],
             ).add_params(click_sel)
-            means = pp_ds.groupby("method", as_index=False)["l2"].mean()
+            means = pp_ds.groupby("method", as_index=False)[metric].mean()
             mean_seg = pd.concat([
-                pd.DataFrame({"method": m, "x": [centers[m] - 0.3, centers[m] + 0.3], "l2": [v, v]})
-                for m, v in zip(means["method"], means["l2"])
+                pd.DataFrame({"method": m, "x": [centers[m] - 0.3, centers[m] + 0.3],
+                              "val": [v, v]})
+                for m, v in zip(means["method"], means[metric])
             ], ignore_index=True)
             mean_layer = alt.Chart(mean_seg).mark_line(color="red", size=2).encode(
-                x=alt.X("x:Q", scale=xscale, axis=None), y="l2:Q", detail="method:N")
+                x=alt.X("x:Q", scale=xscale, axis=None), y="val:Q", detail="method:N")
             event = st.altair_chart((violin + pts + mean_layer).properties(height=420),
                                     use_container_width=True, on_select="rerun",
                                     key=f"bee_{ds}_{metric}")
