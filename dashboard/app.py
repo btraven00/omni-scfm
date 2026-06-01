@@ -13,7 +13,10 @@ Run locally:  pixi run dashboard
 
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
+import urllib.request
 from pathlib import Path
 
 import altair as alt
@@ -41,11 +44,46 @@ from omni_scfm.dashboard_data import (  # noqa: E402
 )
 
 REPO = Path(__file__).resolve().parents[1]
-DEFAULT_SCORES = REPO / "out" / "scores.parquet"
-DEFAULT_SCATTER = REPO / "out" / "scatter.parquet"
-DEFAULT_PUBLISHED = REPO / "scratch" / "published" / "published_single.csv"
-DEFAULT_PUBLISHED_DOUBLE = REPO / "scratch" / "published" / "published_double.csv"
-DEFAULT_CENTRALITY = REPO / "data" / "gene_centrality.csv"
+
+# Results are consumed from the decoupled results repo (omni-scfm-results) by URL when
+# deployed (e.g. Streamlit Cloud), or from local files during dev. Override the base
+# with OMNI_RESULTS_BASE. See https://github.com/btraven00/omni-scfm-results .
+RESULTS_BASE = os.environ.get(
+    "OMNI_RESULTS_BASE",
+    "https://raw.githubusercontent.com/btraven00/omni-scfm-results/main",
+)
+
+
+def _src(local: Path, name: str) -> str:
+    """Local file if present (dev), else the published results-repo URL (deploy)."""
+    return str(local) if local.exists() else f"{RESULTS_BASE}/{name}"
+
+
+@st.cache_data(show_spinner=False)
+def _localize(src: str | None) -> str | None:
+    """The loaders take file paths; for an http(s) source, fetch once to a temp file
+    (stdlib only — keeps the deploy free of an fsspec/aiohttp dependency)."""
+    if not src:
+        return None
+    if not src.startswith(("http://", "https://")):
+        return src if Path(src).exists() else None
+    try:
+        req = urllib.request.Request(src, headers={"User-Agent": "omni-scfm-dashboard"})
+        fd, tmp = tempfile.mkstemp(suffix=Path(src).suffix or ".dat")
+        with urllib.request.urlopen(req) as r, os.fdopen(fd, "wb") as f:
+            f.write(r.read())
+        return tmp
+    except Exception:
+        return None
+
+
+DEFAULT_SCORES = _src(REPO / "out" / "scores.parquet", "scores.parquet")
+DEFAULT_SCATTER = _src(REPO / "out" / "scatter.parquet", "scatter.parquet")
+DEFAULT_PUBLISHED = _src(REPO / "scratch" / "published" / "published_single.csv",
+                         "reference/published_single.csv")
+DEFAULT_PUBLISHED_DOUBLE = _src(REPO / "scratch" / "published" / "published_double.csv",
+                                "reference/published_double.csv")
+DEFAULT_CENTRALITY = _src(REPO / "data" / "gene_centrality.csv", "reference/gene_centrality.csv")
 
 st.set_page_config(page_title="omni-scfm", layout="wide")
 st.title("omni-scfm — perturbation prediction benchmark")
@@ -53,11 +91,12 @@ st.caption("Reproduction of Ahlmann-Eltze, Huber & Anders (Nat Methods 2025) + e
 
 # --- sidebar inputs (shared by both tabs) -----------------------------------
 scores_path = st.sidebar.text_input("scores.parquet", str(DEFAULT_SCORES))
-if not Path(scores_path).exists():
+scores_local = _localize(scores_path)
+if scores_local is None:
     st.warning(f"No scores at `{scores_path}` — run the benchmark then `pixi run collect`.")
     st.stop()
 
-df = load_scores(scores_path)
+df = load_scores(scores_local)
 all_datasets = sorted(df["dataset"].unique())
 datasets_sel = st.sidebar.multiselect("Datasets", all_datasets, default=all_datasets)
 if not datasets_sel:
@@ -79,8 +118,10 @@ st.sidebar.markdown(
 )
 
 # shared artifacts + derived frames (used across tabs)
-scatter_df = load_scatter(scatter_path) if Path(scatter_path).exists() else None
-centrality = load_centrality(centrality_path) if Path(centrality_path).exists() else None
+scatter_local = _localize(scatter_path)
+scatter_df = load_scatter(scatter_local) if scatter_local else None
+centrality_local = _localize(centrality_path)
+centrality = load_centrality(centrality_local) if centrality_local else None
 sub = df[df["split"] == split].dropna(subset=[metric]).copy()
 lb = leaderboard(df, split=split, metric=metric)
 order = lb.sort_values("median", ascending=False)["method"].tolist()
@@ -257,7 +298,7 @@ with tab_repro:
     # Single table covers adamson, double covers norman_from_scfoundation (method
     # names normalised to our ids in load_published).
     st.header("Reproduction vs published")
-    pub_paths = [p for p in (pub_single, pub_double) if Path(p).exists()]
+    pub_paths = [q for q in (_localize(pub_single), _localize(pub_double)) if q]
     if not pub_paths:
         st.info("No published reference found — run `python scripts/extract_published_numbers.py` "
                 "to enable the ours-vs-paper overlay.")

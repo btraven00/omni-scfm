@@ -1,0 +1,9 @@
+# Streamlit Community Cloud deploy deps for dashboard/app.py.
+# (Local dev uses the pixi `dashboard` env; this is only for the hosted deploy.)
+# Data is fetched from the omni-scfm-results repo by URL via stdlib urllib — no
+# fsspec/aiohttp needed; pyarrow is for read_parquet.
+streamlit
+altair
+pandas
+numpy
+pyarrow
