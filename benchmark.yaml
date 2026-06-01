@@ -31,6 +31,10 @@ software_environments:
     name: GEARS GPU env (paper-pinned + CUDA torch)
     description: gears stack with pytorch-gpu for the GEARS method (trains on cuda)
     conda: envs/gears-gpu.yml
+  cpa-gpu:
+    name: CPA GPU env (paper-pinned)
+    description: cpa-tools 0.8.8 / scvi-tools 0.20.3 / torch cu118 for the CPA method (trains on cuda)
+    conda: envs/cpa-gpu.yml
 
 stages:
   # 1. Download raw data (reproducible, via the omni-data remote module).
@@ -45,7 +49,8 @@ stages:
         # NB: additive is degenerate on this single-pert dataset (every "double" is a
         # single -> leakage). `exclude` does not prune in OB 0.5.1, so the collector's
         # DOUBLE_ONLY filter drops additive's single-pert rows instead (see collect.py).
-        exclude: ["additive"]
+        # cpa is doubles-only (paper reports it on norman_from_scfoundation only).
+        exclude: ["additive", "cpa"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e  # fix/downloadsh-extensionless-naming (robust naming)
@@ -55,6 +60,9 @@ stages:
       - id: norman
         name: "Norman 2019 (GEARS-processed, Harvard Dataverse) — double perturbations"
         software_environment: "omni_data"
+        # cpa runs only on the scfoundation substrate (the paper's CPA target); keep
+        # it off plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
+        exclude: ["cpa"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e
@@ -122,7 +130,10 @@ stages:
           commit: HEAD
           entrypoint: split
         parameters:
-          - seed: [1, 2]
+          # Seed grid — single source of truth (YAML anchor; alias *seeds elsewhere
+          # if another stage ever needs the same set). Paper: singles=1,2 / doubles=1–5;
+          # running 2 seeds everywhere for now (testing). Bump the anchor to change all.
+          - seed: &seeds [1, 2]
 
   # 4. Ground truth: observed condition means (scoring target, seed-independent).
   - id: ground_truth
@@ -191,3 +202,16 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: gears
+      # CPA (compositional perturbation autoencoder; verbatim run_cpa.py). Scoped to
+      # norman_from_scfoundation — the only substrate the paper reports CPA on — via
+      # `exclude: ["cpa"]` on the adamson + norman dataset modules (inverse of gears).
+      # Reads the bit-exact substrate with stock cell-gears 0.1.2 (rename dodge in
+      # run.sh avoids the script's scfoundation-fork branch); the GEARS 0.0.2 fork is
+      # deferred to the future scfoundation method, which actually runs the model.
+      - id: cpa
+        name: "CPA (autoencoder; verbatim run_cpa.py, cpa-tools 0.8.8)"
+        software_environment: "cpa-gpu"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: cpa

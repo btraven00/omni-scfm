@@ -4,6 +4,9 @@
 # benchmark.yaml a module references one via `repository: {url: ".", entrypoint: <key>}`,
 # so all modules live in this single repo instead of one repo per module.
 entrypoints:
+  # NB: gene2go is NOT an OB entrypoint — it's side-loaded (`pixi run fetch-godata`),
+  # because OB 0.5.1 can't wire one global artifact into per-dataset lineages. See
+  # modules/godata/gene2go/run.sh.
   preprocess: modules/preprocess/run.py
   split: modules/split/run.sh
   ground_truth: modules/methods/ground_truth/run.py
@@ -11,3 +14,4 @@ entrypoints:
   lpm: modules/methods/lpm/run.sh
   additive: modules/methods/additive/run.sh
   gears: modules/methods/gears/run.sh
+  cpa: modules/methods/cpa/run.sh

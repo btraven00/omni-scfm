@@ -21,13 +21,14 @@ REPO="$(pwd)"
 PREP="$REPO/vendor/paper/benchmark/src/prepare_perturbation_data.py"
 SCF_SPLIT="$REPO/modules/split/scf_split.py"
 
-output_dir="" ; data_h5ad="" ; data_go="" ; seed="1"
+output_dir="" ; data_h5ad="" ; data_go="" ; seed="1" ; gene2go=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output_dir)              output_dir="$2"; shift 2 ;;
     --name)                    shift 2 ;;
     --data.h5ad|--data_h5ad)   data_h5ad="$2";  shift 2 ;;
     --data.go|--data_go)       data_go="$2";    shift 2 ;;
+    --godata.gene2go|--godata_gene2go|--gene2go|--gene2go_all) gene2go="$2"; shift 2 ;;
     --seed)                    seed="$2";       shift 2 ;;
     *)                         shift ;;
   esac
@@ -45,14 +46,16 @@ mkdir -p "$wd/data/gears_pert_data/$ds" "$wd/results"
 # which through a symlink would corrupt the upstream preprocess output.
 cp "$(realpath "$data_h5ad")" "$wd/data/gears_pert_data/$ds/perturb_processed.h5ad"
 [[ -n $data_go ]] && cp "$data_go" "$wd/data/gears_pert_data/$ds/go.csv"
-# Optional: reuse a cached gene2go / pert-gene graph to skip the ~9MB download.
-# TODO: make this a proper benchmark stage — a `gears_godata` download module
-# (omni-data-style) that fetches gene2go_all.pkl + essential_all_data_pert_genes.pkl
-# once, declared as an input here (and to the GEARS method) instead of GEARS
-# re-downloading them on every split/seed run.
+# Skip GEARS' ~9MB gene2go re-download. gene2go_all.pkl is SIDE-LOADED (fetched once
+# by `pixi run fetch-godata` -> data/godata/), not an OB stage: OB 0.5.1 can't wire a
+# single global artifact into per-dataset lineages (a parallel-root input is silently
+# dropped from argv). Precedence: --gene2go flag > data/godata default > OMNI_GEARS_CACHE
+# (the integration-test fixture, which doesn't run the full OB graph).
 if [[ -n "${OMNI_GEARS_CACHE:-}" && -d "$OMNI_GEARS_CACHE" ]]; then
   cp -n "$OMNI_GEARS_CACHE"/*.pkl "$wd/data/gears_pert_data/" 2>/dev/null || true
 fi
+gene2go="${gene2go:-$REPO/data/godata/gene2go_all.pkl}"
+[[ -f $gene2go ]] && cp "$gene2go" "$wd/data/gears_pert_data/gene2go_all.pkl"
 
 rid="result"
 # scFoundation Norman: the paper's verbatim script can't run off-cluster for this

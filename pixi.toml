@@ -135,6 +135,43 @@ r-irlba = "*"        # linear pretrained model (PCA embeddings)
 r-skimr = "*"        # lpm summary printout
 "r-data.table" = "*" # quoted: the dot is part of the package name, not a TOML table
 
+# cpa-gpu: the CPA method (run_cpa.py) — a cpa-tools autoencoder that trains on GPU.
+# Unlike gears, the stack is the paper's tightly-coupled all-pip set (cpa-tools 0.8.8
+# pins scvi-tools 0.20.3 / lightning 1.9.5, which need numpy<1.24 + the old anndata
+# 0.9 / scanpy 1.10 API), so it's declared as pypi-dependencies with python+pip from
+# conda. torch==2.0.0's default PyPI wheel is the cu117 build (validated). cell-gears
+# is here only so run_cpa.py's PertData.load can read the bit-exact substrate (it
+# never runs the GEARS model). Mirror: envs/cpa-gpu.yml (hand-maintained for OB, like
+# gears). Scoped to norman_from_scfoundation in benchmark.yaml.
+[feature.cpa-gpu.dependencies]
+python = "3.10.*"
+pip = "*"
+# cpa-tools 0.8.8 (via its deps) caps these build/meta packages; pixi's conda solve
+# otherwise floats them to versions uv can't override -> resolution conflict.
+setuptools = "70.0.*"   # cpa-tools pins setuptools<70.1
+packaging = "24.*"      # cpa-tools->lightning 2.2.x pins packaging<25
+
+[feature.cpa-gpu.pypi-dependencies]
+torch = "==2.0.0"
+torch-geometric = "==2.5.3"   # cell-gears PertData import needs PyG
+cpa-tools = "==0.8.8"
+scvi-tools = "==0.20.3"
+pytorch-lightning = "==1.9.5"
+cell-gears = "==0.1.2"
+pyarrow = "==18.1.0"          # scvi/cpa use pyarrow.PyExtensionType, dropped in newer pyarrow
+numpy = "==1.23.5"
+scipy = "==1.12.0"
+pandas = "==2.2.2"
+anndata = "==0.9.2"
+scanpy = "==1.10.1"
+scikit-learn = "==1.5.0"
+numba = "==0.58.1"
+session-info = "==1.0.0"
+
+# Same __cuda caveat as gears-gpu: pixi doesn't auto-detect the driver for local installs.
+[feature.cpa-gpu.system-requirements]
+cuda = "12"
+
 # --- environments (pixi solves each independently) --------------------------
 [environments]
 default = { features = ["base"] }
@@ -142,6 +179,7 @@ omnidata = { features = ["omnidata"] }
 r = { features = ["r"] }
 gears = { features = ["gears"] }
 gears-gpu = { features = ["gears-gpu"] }
+cpa-gpu = { features = ["cpa-gpu"] }
 omnipath = { features = ["omnipath"] }
 dashboard = { features = ["base", "dashboard"] }
 
@@ -155,3 +193,7 @@ export-r = "pixi workspace export conda-environment --environment r envs/r.yml"
 # Collect metrics for one run: `pixi run collect [OUT_DIR] [-o SCORES.parquet]`
 # (defaults to ./out -> ./out/scores.parquet). Pass another run's dir explicitly.
 collect = { cmd = "python -m omni_scfm.collect", env = { PYTHONPATH = "src" } }
+# Side-load the GEARS gene2go vocabulary once into data/godata/ (md5-pinned). The
+# split/method modules default to data/godata/gene2go_all.pkl; run this before `ob run`
+# so GEARS doesn't re-download ~9MB per split/method/seed. See modules/godata/gene2go.
+fetch-godata = "bash modules/godata/gene2go/run.sh --output_dir data/godata"

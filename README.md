@@ -23,7 +23,7 @@ verbatim. Status legend: ✅ wired & validated · 🎯 next-up target · ⬜ pla
 | scGPT | `scgpt` | foundation | `run_scgpt.py` | new | 🎯 | needs pretrained weights + GPU env |
 | Geneformer | `geneformer` | foundation | `run_geneformer.py` | new | 🎯 | needs weights + GPU env |
 | scFoundation | `scfoundation` | foundation | `run_scfoundation.py` | new | 🎯 | needs weights + GPU env |
-| CPA | `cpa` | deep (autoencoder) | `run_cpa.py` | new | ⬜ | trains per split |
+| CPA | `cpa` | deep (autoencoder) | `run_cpa.py` | cpa-gpu | ✅ | trains per split (GPU); scoped to `norman_from_scfoundation` |
 | scBERT | `scbert` | foundation | `run_scbert.py` | new | ⬜ | needs weights + GPU env |
 | UCE | `uce` | foundation | `run_uce.py` | new | ⬜ | needs weights + GPU env |
 | Transfer (linear) | `transfer` | baseline (cross-dataset) | `run_transfer_perturbation_prediction.R` | r | ⬜ | needs a `--reference_data` dataset (e.g. Replogle) staged as a second input |
@@ -45,7 +45,17 @@ This project is licensed under the MIT License.
    pip install omnibenchmark
    ```
 
-2. Run the benchmark:
+2. Fetch the shared reference data (once):
+   ```bash
+   pixi run fetch-godata
+   ```
+   Downloads GEARS' `gene2go_all.pkl` (md5-pinned) into `data/godata/`. The `split`
+   and the GEARS/CPA/additive method modules read it from there, avoiding a ~9 MB
+   re-download on every split/method/seed. It's *side-loaded* rather than an OB stage
+   because OB 0.5.1 can't wire one global file into per-dataset lineages — see
+   `AGENTS.md`.
+
+3. Run the benchmark:
    ```bash
    ob run benchmark.yaml
    ```

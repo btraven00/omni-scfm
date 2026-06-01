@@ -21,13 +21,14 @@ export PYTHONNOUSERSITE=1   # ~/.local/lib/python3.10 leaks into the env otherwi
 REPO="$(pwd)"
 SCRIPT="$REPO/vendor/paper/benchmark/src/run_additive_model.py"
 
-output_dir="" ; data_h5ad="" ; data_go="" ; split="" ; seed=""
+output_dir="" ; data_h5ad="" ; data_go="" ; split="" ; seed="" ; gene2go=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output_dir)                                  output_dir="$2"; shift 2 ;;
     --name)                                        shift 2 ;;
     --data.h5ad|--data_h5ad)                       data_h5ad="$2";  shift 2 ;;
     --data.go|--data_go)                           data_go="$2";    shift 2 ;;
+    --godata.gene2go|--godata_gene2go|--gene2go|--gene2go_all) gene2go="$2"; shift 2 ;;
     --split.set2conditions|--split_set2conditions) split="$2";      shift 2 ;;
     --seed)                                        seed="$2";       shift 2 ;;
     *)                                             shift ;;
@@ -47,9 +48,12 @@ wd=$(mktemp -d); trap 'rm -rf "$wd"' EXIT
 mkdir -p "$wd/data/gears_pert_data/$ds" "$wd/results"
 cp "$(realpath "$data_h5ad")" "$wd/data/gears_pert_data/$ds/perturb_processed.h5ad"
 [[ -n $data_go ]] && cp "$data_go" "$wd/data/gears_pert_data/$ds/go.csv"
+# gene2go_all.pkl side-loaded (pixi run fetch-godata -> data/godata/); see split/run.sh.
 if [[ -n "${OMNI_GEARS_CACHE:-}" && -d "$OMNI_GEARS_CACHE" ]]; then
   cp -n "$OMNI_GEARS_CACHE"/*.pkl "$wd/data/gears_pert_data/" 2>/dev/null || true
 fi
+gene2go="${gene2go:-$REPO/data/godata/gene2go_all.pkl}"
+[[ -f $gene2go ]] && cp "$gene2go" "$wd/data/gears_pert_data/gene2go_all.pkl"
 cfg="config"; rid="result"
 cp "$split" "$wd/results/$cfg"
 

@@ -5,6 +5,9 @@ out/
 # Local planning / scratch (not part of the benchmark)
 scratch/
 
+# Side-loaded reference data (fetched by `pixi run fetch-godata`, md5-pinned, ~9MB)
+data/godata/
+
 # Python
 __pycache__/
 *.py[cod]

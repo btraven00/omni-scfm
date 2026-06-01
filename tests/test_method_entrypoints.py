@@ -5,11 +5,18 @@ Runs each baseline method's wrapper on the committed tiny norman fixture
 output contract: a gzipped {condition: [per-gene value]} prediction map plus a
 gene_names.json, with vectors the width of the fixture's gene panel.
 
-These are integration tests: each method needs its pixi env (`.pixi/envs/{r,gears}`)
-and `additive` needs a GEARS gene2go cache. Any missing prerequisite -> skip, so
-the suite stays green on a machine without the envs while still guarding the
-entrypoints wherever they can actually run. GEARS is intentionally not covered
-here — it trains on a GPU (device='cuda') and is validated separately.
+These are integration tests: each method needs its conda/pixi env and some need a
+GEARS gene2go cache. Any missing prerequisite -> skip, so the suite stays green on a
+machine without the envs while still guarding the entrypoints wherever they can
+actually run. Selected/tracked via the `integration` marker (see pyproject.toml).
+
+GPU methods are GPU-gated rather than excluded: `cpa` runs here when both a CPA env
+and a CUDA device are present (the norman_tiny train is ~5s), else it skips. GEARS is
+still not covered — its env is heavier and it's validated separately.
+
+Portability note: these tests are parametrized only by method name + run.sh path +
+the committed fixture, so when a module graduates to its own repo the matching test
+travels with it unchanged (just move the function + the fixture dir).
 """
 from __future__ import annotations
 
@@ -31,6 +38,28 @@ N_GENES = 200  # must match the committed fixture's gene panel
 def _env_bin(name: str) -> Path | None:
     p = REPO / ".pixi" / "envs" / name / "bin"
     return p if p.is_dir() else None
+
+
+def _cpa_env_bin() -> Path | None:
+    """Canonical: the pixi env (`.pixi/envs/cpa-gpu`, from `pixi install -e cpa-gpu`).
+    Override: `OMNI_CPA_ENV_BIN` for the OB run box, where OB builds envs/cpa-gpu.yml
+    into a snakemake conda prefix rather than a pixi env. (No scratch fallback — see
+    AGENTS.md: tests never depend on scratch/.)"""
+    if (ov := os.environ.get("OMNI_CPA_ENV_BIN")) and (Path(ov) / "python").exists():
+        return Path(ov)
+    return _env_bin("cpa-gpu")
+
+
+def _has_cuda(env_bin: Path) -> bool:
+    """run_cpa.py calls torch.cuda.get_device_name() at startup, so without a GPU it
+    crashes rather than skips — probe first."""
+    env = os.environ.copy()
+    env["PATH"] = f"{env_bin}:{env['PATH']}"
+    env["PYTHONNOUSERSITE"] = "1"
+    r = subprocess.run([str(env_bin / "python"), "-c",
+                        "import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)"],
+                       env=env, capture_output=True)
+    return r.returncode == 0
 
 
 def _gene2go_dir() -> Path | None:
@@ -100,5 +129,23 @@ def test_additive_entrypoint():
         "additive", gb,
         ["--data.go", str(FIX / f"{NAME}.go.csv")],
         extra_env={"OMNI_GEARS_CACHE": str(cache)},
+    )
+    _assert_predictions(out, proc)
+
+
+@pytest.mark.integration
+def test_cpa_entrypoint():
+    cb = _cpa_env_bin()
+    if cb is None:
+        pytest.skip("cpa env not available (set OMNI_CPA_ENV_BIN or build envs/cpa-gpu.yml)")
+    if not _has_cuda(cb):
+        pytest.skip("no CUDA device (run_cpa.py trains on GPU)")
+    cache = _gene2go_dir()
+    if cache is None:
+        pytest.skip("no GEARS gene2go cache (scratch/scf/pertdata)")
+    out, proc = _run(
+        "cpa", cb,
+        ["--data.go", str(FIX / f"{NAME}.go.csv")],
+        extra_env={"OMNI_CPA_CACHE": str(cache)},
     )
     _assert_predictions(out, proc)
