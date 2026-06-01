@@ -106,12 +106,22 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- sidebar inputs (shared by both tabs) -----------------------------------
-st.sidebar.markdown(
-    "<div style='font-size:0.95rem; margin-bottom:0.6rem;'>⚡ powered by "
-    "<a href='https://omnibenchmark.org' target='_blank'>OmniBenchmark</a></div>",
+# pinned bottom-left credit
+st.markdown(
+    """
+    <style>
+    .omni-powered { position: fixed; left: 16px; bottom: 12px; z-index: 1000;
+                    font-size: 0.85rem; color: #6b7280; }
+    .omni-powered a { color: #4b5fa6; text-decoration: none; }
+    .omni-powered a:hover { color: #2f3f80; }
+    </style>
+    <div class="omni-powered">powered by
+        <a href="https://omnibenchmark.org" target="_blank">OmniBenchmark</a></div>
+    """,
     unsafe_allow_html=True,
 )
+
+# --- sidebar inputs (shared by both tabs) -----------------------------------
 scores_path = st.sidebar.text_input("scores.parquet", str(DEFAULT_SCORES))
 scores_local = _localize(scores_path)
 if scores_local is None:
