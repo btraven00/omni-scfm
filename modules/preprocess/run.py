@@ -90,11 +90,19 @@ def _new_data_process_scfoundation(raw_h5ad: Path, name: str, workdir: Path):
 
     folder = workdir / "gears_pert_data"
     folder.mkdir(parents=True, exist_ok=True)
-    # Reuse a cached gene2go if present, else GEARS downloads it (~9MB) itself.
+    # Reuse a cached gene2go so new_data_process doesn't re-download it (~9MB).
+    # Prefer the side-loaded data/godata/ (pixi run fetch-godata), else OMNI_GEARS_CACHE.
+    # cell-gears reads gene2go_all.pkl; gene2go.pkl is byte-identical (same md5) and the
+    # scFoundation path also looks for that name, so write both. (cell_graphs/data_pyg is
+    # NOT cached — the paper's split unlinks it by design; caching risks the bit-exact split.)
     cache = os.environ.get("OMNI_GEARS_CACHE")
     if cache and Path(cache).is_dir():
         for pkl in Path(cache).glob("*.pkl"):
             shutil.copy(pkl, folder / pkl.name)
+    godata = Path(__file__).resolve().parents[2] / "data" / "godata" / "gene2go_all.pkl"
+    if godata.is_file():
+        shutil.copy(godata, folder / "gene2go_all.pkl")
+        shutil.copy(godata, folder / "gene2go.pkl")
 
     adata = sc.read_h5ad(raw_h5ad)
     adata.uns["log1p"] = {"base": None}
