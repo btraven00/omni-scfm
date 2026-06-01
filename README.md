@@ -1,6 +1,12 @@
 # omni-scfm
 
-Omnibenchmark port of "Benchmarking deep learning models for perturbation prediction".
+Omnibenchmark port of:
+
+> Deep learning-based predictions of gene perturbation effects do not yet
+> outperform simple linear baselines. Constantin Ahlmann-Eltze, Wolfgang Huber,
+> Simon Anders. Nature Methods 2025; doi:
+> https://doi.org/10.1038/s41592-025-02772-6
+[git repo](https://github.com/const-ae/linear_perturbation_prediction-Paper)
 
 ## Overview
 
