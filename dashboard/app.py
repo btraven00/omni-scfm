@@ -106,20 +106,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# pinned bottom-left credit
-st.markdown(
-    """
-    <style>
-    .omni-powered { position: fixed; left: 16px; bottom: 12px; z-index: 1000;
-                    font-size: 0.85rem; color: #6b7280; }
-    .omni-powered a { color: #4b5fa6; text-decoration: none; }
-    .omni-powered a:hover { color: #2f3f80; }
-    </style>
-    <div class="omni-powered">powered by
-        <a href="https://omnibenchmark.org" target="_blank">OmniBenchmark</a></div>
-    """,
-    unsafe_allow_html=True,
-)
 
 # --- sidebar inputs (shared by both tabs) -----------------------------------
 scores_path = st.sidebar.text_input("scores.parquet", str(DEFAULT_SCORES))
@@ -148,6 +134,10 @@ st.sidebar.markdown(
     f"**{len(df)}** rows · {df['method'].nunique()} method(s) · "
     f"{df['dataset'].nunique()} dataset(s) · seeds {sorted(df['seed'].dropna().unique())}"
 )
+
+# credit — plain sidebar content (lives in the left bar, below the controls)
+st.sidebar.divider()
+st.sidebar.caption("powered by [OmniBenchmark](https://omnibenchmark.org)")
 
 # shared artifacts + derived frames (used across tabs)
 scatter_local = _localize(scatter_path)
@@ -237,20 +227,26 @@ with tab_repro:
                                                                      seed=centers[m])
             viol = pd.concat(viol, ignore_index=True)
             xscale = alt.Scale(domain=[-0.5, len(morder) - 0.5])
-            label_expr = "[" + ",".join(f"'{m}'" for m in morder) + "][datum.value]"
-            # the labelled method axis lives on the FIRST (violin) layer — a later
-            # layer's axis gets dropped when Altair merges the shared x scale.
-            xaxis = alt.Axis(values=list(range(len(morder))), labelExpr=label_expr,
-                             labelAngle=-30, labelFontSize=12, grid=False, tickSize=0, title=None)
+            # The labelExpr axis doesn't survive Altair's layer/scale merge, so the
+            # method names are drawn as an explicit text layer in a padded band below
+            # the data (`ylab`), which always renders.
+            yv = pd.concat([viol["y"], pp_ds[metric]]).astype(float)
+            ymin, ymax = float(yv.min()), float(yv.max())
+            pad = (ymax - ymin) * 0.18 or 0.1
+            yscale = alt.Scale(domain=[ymin - pad, ymax], nice=False)
+            ylab = ymin - pad * 0.45
 
+            # the single y-axis (with gridlines) lives on this first layer; the other
+            # layers set axis=None so they don't override/suppress it on the merge.
+            yaxis = alt.Axis(grid=True, gridOpacity=0.4, title=mlabel)
             violin = alt.Chart(viol).mark_area(opacity=0.25, color="#6c8ebf").encode(
-                x=alt.X("xL:Q", scale=xscale, axis=xaxis), x2="xR:Q",
-                y=alt.Y("y:Q", title=mlabel), detail="method:N")
+                x=alt.X("xL:Q", scale=xscale, axis=None), x2="xR:Q",
+                y=alt.Y("y:Q", scale=yscale, axis=yaxis), detail="method:N")
             click_sel = alt.selection_point(name="clickpert", fields=["perturbation"],
                                             on="click", empty=False)
             pts = alt.Chart(pp_ds).mark_circle().encode(
                 x=alt.X("xpos:Q", title=None, scale=xscale, axis=None),
-                y=alt.Y(f"{metric}:Q", title=mlabel),
+                y=alt.Y(f"{metric}:Q", scale=yscale),
                 color=alt.Color("sel:N", scale=alt.Scale(domain=[False, True],
                                 range=["#9aa0a6", "orange"]), legend=None),
                 size=alt.Size("sel:N", scale=alt.Scale(domain=[False, True],
@@ -265,10 +261,17 @@ with tab_repro:
                 for m, v in zip(means["method"], means[metric])
             ], ignore_index=True)
             mean_layer = alt.Chart(mean_seg).mark_line(color="red", size=2).encode(
-                x=alt.X("x:Q", scale=xscale, axis=None), y="val:Q", detail="method:N")
-            event = st.altair_chart((violin + pts + mean_layer).properties(height=420),
-                                    use_container_width=True, on_select="rerun",
-                                    key=f"bee_{ds}_{metric}")
+                x=alt.X("x:Q", scale=xscale, axis=None),
+                y=alt.Y("val:Q", scale=yscale), detail="method:N")
+            lab = pd.DataFrame({"x": [centers[m] for m in morder], "y": ylab, "method": morder})
+            labels = alt.Chart(lab).mark_text(
+                align="center", baseline="middle", fontSize=15, fontWeight="bold",
+                color="#333").encode(
+                x=alt.X("x:Q", scale=xscale, axis=None),
+                y=alt.Y("y:Q", scale=yscale), text="method:N")
+            event = st.altair_chart(
+                (violin + pts + mean_layer + labels).properties(height=440),
+                use_container_width=True, on_select="rerun", key=f"bee_{ds}_{metric}")
             picked = None
             esel = getattr(event, "selection", None) or {}
             crows = esel.get("clickpert") if isinstance(esel, dict) else None
@@ -488,22 +491,25 @@ with tab_ext:
         if len(g) < 3:
             st.info("Too few perturbations with centrality + difficulty to correlate.")
         else:
-            rk = g[["cent", "y", "mag"]].rank()
-            cm = rk.corr()
-            r_cy, r_cm, r_ym = cm.loc["cent", "y"], cm.loc["cent", "mag"], cm.loc["y", "mag"]
-            if ymetric == "l2":            # y IS the magnitude -> partialling it out is degenerate
-                partial, ptxt = float("nan"), "n/a (y is magnitude)"
-            else:
-                den = ((1 - r_cm ** 2) * (1 - r_ym ** 2)) ** 0.5
-                partial = (r_cy - r_cm * r_ym) / den if den > 0 else float("nan")
-                ptxt = f"{partial:+.2f}"
-            dir_note = ("higher = harder, so positive ρ ⇒ central genes harder"
-                        if harder_high else
-                        "higher = easier, so negative ρ ⇒ central genes harder")
-            st.caption(
-                f"Spearman ρ(centrality, {ylabel}) = **{r_cy:+.2f}**  ·  partial ρ(· | L2) = "
-                f"**{ptxt}**  ·  ρ(centrality, L2) = **{r_cm:+.2f}**  (n={len(g)}). "
-                f"{ylabel}: {dir_note}; a partial ≈ 0 with strong ρ-vs-L2 ⇒ magnitude confound.")
+            # TODO(revisit): centrality-vs-difficulty correlation stats commented out —
+            # the partial-correlation / magnitude-confound interpretation needs review
+            # before it's defensible. Plot stays; the stats note is parked here.
+            # rk = g[["cent", "y", "mag"]].rank()
+            # cm = rk.corr()
+            # r_cy, r_cm, r_ym = cm.loc["cent", "y"], cm.loc["cent", "mag"], cm.loc["y", "mag"]
+            # if ymetric == "l2":            # y IS the magnitude -> partialling it out is degenerate
+            #     partial, ptxt = float("nan"), "n/a (y is magnitude)"
+            # else:
+            #     den = ((1 - r_cm ** 2) * (1 - r_ym ** 2)) ** 0.5
+            #     partial = (r_cy - r_cm * r_ym) / den if den > 0 else float("nan")
+            #     ptxt = f"{partial:+.2f}"
+            # dir_note = ("higher = harder, so positive ρ ⇒ central genes harder"
+            #             if harder_high else
+            #             "higher = easier, so negative ρ ⇒ central genes harder")
+            # st.caption(
+            #     f"Spearman ρ(centrality, {ylabel}) = **{r_cy:+.2f}**  ·  partial ρ(· | L2) = "
+            #     f"**{ptxt}**  ·  ρ(centrality, L2) = **{r_cm:+.2f}**  (n={len(g)}). "
+            #     f"{ylabel}: {dir_note}; a partial ≈ 0 with strong ρ-vs-L2 ⇒ magnitude confound.")
             xscale = alt.Scale(type="symlog") if logx else alt.Scale()
             enc_x = alt.X("cent:Q", title=f"{measure} ({agg} over the pair's genes)", scale=xscale)
             base_c = alt.Chart(g)
@@ -521,8 +527,7 @@ with tab_ext:
             labels_c = alt.Chart(hard).mark_text(align="left", dx=6, dy=-4, fontSize=10,
                                                  color="#555").encode(
                 x=enc_x, y="y:Q", text="perturbation")
-            title = (f"ρ(centrality, {ylabel}) = {r_cy:+.2f}    partial(| L2) = {ptxt}    "
-                     f"n = {len(g)}    (red = loess; labels = hardest)")
+            title = f"n = {len(g)}    (red = loess; labels = hardest)"
             st.altair_chart((pts_c + trend_c + labels_c)
                             .properties(height=420, title=title).interactive(),
                             use_container_width=True)
