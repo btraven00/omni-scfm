@@ -54,6 +54,26 @@ Adding a method = add its `run.sh` + entrypoint + `benchmark.yaml` module + a pi
 feature + (if not exportable) a hand-mirrored `envs/<id>.yml` + one integration test
 following the rules above.
 
+## Method modules (`run.sh`)
+
+- **One private sandbox per job.** Each method `run.sh` does `wd=$(mktemp -d); trap
+  'rm -rf "$wd"' EXIT`, stages a private copy of the GEARS pert-data folder under it,
+  and runs the vendored script with `( cd "$wd" && … )`. This is load-bearing for
+  **parallel correctness**: the vendored GEARS caches `data_pyg/cell_graphs.pkl` (and
+  the co-expression csv) under a path keyed only by `data_path/<dataset>/` — **no split
+  or seed**. Run two seeds in the same folder and they overwrite / silently reuse each
+  other's cache (and the basal sampling is seed-dependent, so reuse is *wrong*). The
+  per-job `$wd` makes the absolute path unique per `(dataset, seed, method)`, so OB's
+  concurrent seeds can't collide. Don't "optimize" by sharing a pert-data folder.
+- **Side-loaded data lives in the user repo, but OB runs from the staged commit dir.**
+  Under `ob run`, a module's cwd is `out/.modules/omni-scfm/<commit>/`, so `$(pwd)` is
+  NOT the user repo — and `data/` is git-ignored, so it isn't staged there. Resolve
+  side-loaded paths from the **user repo = parent of `out/`**, recovered from
+  `--output_dir`: `DATA_ROOT="${output_dir%%/out/*}"` (fall back to `$REPO` for local
+  invocation). Use `$DATA_ROOT/data/...` for the checkpoint / gene2go / go_essential
+  defaults, never `$REPO/data/...`. (Vendored code under `vendor/` IS committed, so
+  `$REPO/vendor/...` is fine.)
+
 ## Reference data (side-loading)
 
 Global, dataset-independent reference files (e.g. GEARS' `gene2go_all.pkl`) are
