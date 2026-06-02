@@ -224,6 +224,10 @@ collect = { cmd = "python -m omni_scfm.collect", env = { PYTHONPATH = "src" } }
 # split/method modules default to data/godata/gene2go_all.pkl; run this before `ob run`
 # so GEARS doesn't re-download ~9MB per split/method/seed. See modules/godata/gene2go.
 fetch-godata = "bash modules/godata/gene2go/run.sh --output_dir data/godata"
+# Side-load the GEARS precomputed GO-essential graph (Dataverse 6934319, md5-pinned) into
+# data/godata/. scFoundation needs it — without it the forked GEARS rebuilds it via a
+# ~99M-pair single-threaded loop (HOURS). See modules/godata/go_essential.
+fetch-go-essential = "bash modules/godata/go_essential/run.sh --output_dir data/godata"
 # Side-load the scFoundation checkpoint (~GB) into data/scfoundation/ from a URL you
 # provide: `OMNI_SCFOUNDATION_URL='https://…|file:///…' pixi run fetch-scfoundation-model`.
 fetch-scfoundation-model = "bash modules/godata/scfoundation_model/run.sh --output_dir data/scfoundation"
