@@ -85,6 +85,18 @@ task that lands it in a git-ignored `data/<group>/` dir; consuming `run.sh` scri
 before `ob run`. Don't try to express it as an OB `inputs:` node until OB grows a
 first-class global-input (planned upstream).
 
+**Side-load pre-flight (run on the box before `ob run`, or methods stall/fail):**
+
+| artifact | task | feeds | if missing |
+|---|---|---|---|
+| `data/godata/gene2go_all.pkl` | `pixi run fetch-godata` | gears/cpa/additive/split/**scfoundation** | GEARS re-downloads (slow) or scfoundation hard-fails |
+| `data/godata/go_essential_all.csv` | `pixi run fetch-go-essential` | **scfoundation** | forked GEARS rebuilds the GO graph via a ~99M-pair single-thread loop (**HOURS**) |
+| `data/scfoundation/models.ckpt` | `pixi run fetch-scfoundation-model` (or scp) | **scfoundation** | hard-fail |
+
+Note the version trap behind go_essential: stock cell-gears 0.1.2 *downloads* it
+(Dataverse 6934319) and parallelizes the fallback; scFoundation's forked GEARS 0.0.2
+does neither — so its method MUST get the precomputed file.
+
 ## Memory
 
 Project-specific gotchas, repro results, and env quirks are kept as agent memory
