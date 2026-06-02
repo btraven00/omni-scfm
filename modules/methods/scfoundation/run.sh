@@ -38,6 +38,15 @@ MODEL="$REPO/vendor/scfoundation/model"
 CKPT="${OMNI_SCFOUNDATION_CKPT:-}"   # default resolved after --output_dir (see DATA_ROOT)
 EPOCHS="${OMNI_SCF_EPOCHS:-15}"
 BATCH="${OMNI_SCF_BATCH:-6}"   # paper default 6; lower it (e.g. 1) to fit a small GPU
+# TODO(perf): training is CPU/dataloader-bound — GEARS' get_dataloader uses num_workers=0,
+# so a single core collates the in-memory per-cell PyG graphs while the GPU starves (~2s/it
+# observed => DAYS for 15 epochs, matching the paper's 5-day SLURM cap). num_workers>0 is
+# LIKELY numerically identical here (the dataset is pre-built + deterministic, and the
+# shuffle/sampler runs in the main process — workers only fetch indices), UNLIKE batch_size.
+# Plan: add an OMNI_SCF_WORKERS knob (default 0 = paper-exact) that sed-patches the
+# DataLoader's num_workers (+ pin_memory), but ONLY after VERIFYING bit-identical predictions
+# (workers 0 vs 4, same seed, 1 epoch on the tiny fixture). Don't enable blind — it's a
+# vendored-code edit. Could turn days into hours by feeding the GPU.
 
 output_dir="" ; data_h5ad="" ; data_go="" ; split="" ; seed="" ; gene2go=""
 while [[ $# -gt 0 ]]; do
