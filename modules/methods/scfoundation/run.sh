@@ -38,15 +38,15 @@ MODEL="$REPO/vendor/scfoundation/model"
 CKPT="${OMNI_SCFOUNDATION_CKPT:-}"   # default resolved after --output_dir (see DATA_ROOT)
 EPOCHS="${OMNI_SCF_EPOCHS:-15}"
 BATCH="${OMNI_SCF_BATCH:-6}"   # paper default 6; lower it (e.g. 1) to fit a small GPU
-# TODO(perf): training is CPU/dataloader-bound — GEARS' get_dataloader uses num_workers=0,
-# so a single core collates the in-memory per-cell PyG graphs while the GPU starves (~2s/it
-# observed => DAYS for 15 epochs, matching the paper's 5-day SLURM cap). num_workers>0 is
-# LIKELY numerically identical here (the dataset is pre-built + deterministic, and the
-# shuffle/sampler runs in the main process — workers only fetch indices), UNLIKE batch_size.
-# Plan: add an OMNI_SCF_WORKERS knob (default 0 = paper-exact) that sed-patches the
-# DataLoader's num_workers (+ pin_memory), but ONLY after VERIFYING bit-identical predictions
-# (workers 0 vs 4, same seed, 1 epoch on the tiny fixture). Don't enable blind — it's a
-# vendored-code edit. Could turn days into hours by feeding the GPU.
+# perf NOTE (measured, don't re-chase): the ~2s/it (=> ~39h for 15 epochs, matching the
+# paper's 5-day cap) is the MODEL compute (frozen scFoundation encoder forward + the GEARS
+# GNN per batch), NOT the dataloader. Measured DataLoader-only on the scF tiny fixture
+# (scratch/measure_workers): num_workers=0 = 0.4 ms/it; num_workers 2/4/8 are SLOWER (IPC
+# overhead) and bit-identical. So collation is ~0.0002x of the step — num_workers gives no
+# speedup. The 99% CPU core is the train-loop/kernel-launch overhead, not collation. Real
+# levers (all change results or need the model, so out of scope for a faithful repro):
+# bigger batch_size, or precomputing the frozen encoder embeddings instead of recomputing
+# them every epoch.
 
 output_dir="" ; data_h5ad="" ; data_go="" ; split="" ; seed="" ; gene2go=""
 while [[ $# -gt 0 ]]; do
