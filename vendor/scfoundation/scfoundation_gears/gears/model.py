@@ -136,7 +136,30 @@ class GEARS_Model(torch.nn.Module):
             if self.pretrained:
                 pre_in = x.clone().reshape(num_graphs, self.num_genes+1)
                 x = x.reshape(num_graphs, self.num_genes+1)[:,:-1]
-                emb = self.singlecell_model(pre_in)
+                # omni-scfm memory patch (faithful, NO numerical change). When the
+                # scFoundation encoder is frozen (finetune_method='frozen' sets every
+                # singlecell_model param requires_grad=False; see gears.py:351-352), this
+                # forward STILL retains the entire encoder activation graph, because
+                # modules/mae_autobin.py:126 calls x.requires_grad_() (for an attention-map
+                # feature we never use in training). For a ~19k-gene transformer at batch 6
+                # that's ~15 GB of a gradient graph that can never be used — it is exactly
+                # what OOMs a 24 GB GPU at the paper's batch_size=6.
+                #
+                # Running the FROZEN encoder under no_grad is provably identical:
+                #   * no_grad never changes forward *values* -> emb is bit-identical
+                #     (verified: m(x) == no_grad m(x));
+                #   * the encoder params are frozen, so they get no gradient either way;
+                #   * the trainable GEARS head's gradients depend only on emb's VALUE, not
+                #     on whether emb tracks grad -> every trainable grad is unchanged.
+                # It only drops the unused encoder graph. Net: scFoundation trains MORE
+                # FRUGALLY than the original paper here (the paper relied on bigger GPUs) —
+                # batch=6 fits a 24 GB L4 with no change to results. The finetune path
+                # (which *does* backprop the encoder) is deliberately left untouched.
+                if self.args.get('finetune_method') == 'frozen':
+                    with torch.no_grad():
+                        emb = self.singlecell_model(pre_in)
+                else:
+                    emb = self.singlecell_model(pre_in)
                 if 'v1' in self.args['mode']:
                     pos_emb = self.emb_pos(torch.LongTensor(list(range(self.num_genes))).repeat(num_graphs, ).to(self.args['device']))
                 elif 'v2' in self.args['mode']:
