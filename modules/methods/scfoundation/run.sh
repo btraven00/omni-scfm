@@ -92,12 +92,26 @@ if [[ -f $GO_ESSENTIAL ]]; then
   cp "$GO_ESSENTIAL" "$wd/data/gears_pert_data/$ds/go.csv"
 elif [[ -n $data_go && $(wc -l < "$data_go") -gt 1 ]]; then
   cp "$data_go" "$wd/data/gears_pert_data/$ds/go.csv"
+else
+  echo "scfoundation/run.sh: WARNING — no precomputed GO graph (set OMNI_SCF_GO or place" >&2
+  echo "  data/godata/go_essential_all.csv). GEARS will rebuild it via a ~99M-pair Python" >&2
+  echo "  loop over ~9976 essential genes (HOURS on CPU)." >&2
 fi
 if [[ -n "${OMNI_GEARS_CACHE:-}" && -d "$OMNI_GEARS_CACHE" ]]; then
   cp -n "$OMNI_GEARS_CACHE"/*.pkl "$wd/data/gears_pert_data/" 2>/dev/null || true
 fi
+# The forked GEARS PertData.__init__ opens gene2go.pkl DIRECTLY (pertdata.py:28; no
+# download fallback), while stock reads gene2go_all.pkl. They're byte-identical (same
+# md5), so stage the one side-loaded file under BOTH names.
 gene2go="${gene2go:-$DATA_ROOT/data/godata/gene2go_all.pkl}"
-[[ -f $gene2go ]] && cp "$gene2go" "$wd/data/gears_pert_data/gene2go_all.pkl"
+if [[ -f $gene2go ]]; then
+  cp "$gene2go" "$wd/data/gears_pert_data/gene2go_all.pkl"
+  cp "$gene2go" "$wd/data/gears_pert_data/gene2go.pkl"
+fi
+# The forked PertData has no gene2go download fallback — fail fast with guidance.
+[[ -f "$wd/data/gears_pert_data/gene2go.pkl" ]] || {
+  echo "scfoundation/run.sh: gene2go.pkl missing. Run 'pixi run fetch-godata' (writes" >&2
+  echo "  data/godata/gene2go_all.pkl) or set OMNI_GEARS_CACHE to a dir with gene2go.pkl." >&2; exit 4; }
 cfg="config"; rid="result"
 cp "$split" "$wd/results/$cfg"
 
