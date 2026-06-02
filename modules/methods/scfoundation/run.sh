@@ -35,7 +35,7 @@ WRAPPER="$REPO/modules/methods/gears_wrapper.py"            # scipy/pandas shim 
 VENDORED="$REPO/vendor/paper/benchmark/src/run_scfoundation.py"
 FORK="$REPO/vendor/scfoundation/scfoundation_gears"
 MODEL="$REPO/vendor/scfoundation/model"
-CKPT="${OMNI_SCFOUNDATION_CKPT:-$REPO/data/scfoundation/models.ckpt}"
+CKPT="${OMNI_SCFOUNDATION_CKPT:-}"   # default resolved after --output_dir (see DATA_ROOT)
 EPOCHS="${OMNI_SCF_EPOCHS:-15}"
 BATCH="${OMNI_SCF_BATCH:-6}"   # paper default 6; lower it (e.g. 1) to fit a small GPU
 
@@ -56,6 +56,14 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -n $output_dir && -n $data_h5ad && -n $split ]] || {
   echo "scfoundation/run.sh: need --output_dir, --data.h5ad, --split.set2conditions" >&2; exit 2; }
+
+# OB runs the module from its staged commit dir (out/.modules/omni-scfm/<commit>/), so
+# $REPO=$(pwd) is NOT the user repo. The side-loaded (gitignored) data/ lives in the user
+# repo = the parent of out/, which we recover from --output_dir (an absolute path under
+# the real out/). Fall back to $REPO for direct/local invocation.
+DATA_ROOT="${output_dir%%/out/*}"
+[[ -z $DATA_ROOT || $DATA_ROOT == "$output_dir" ]] && DATA_ROOT="$REPO"
+CKPT="${CKPT:-$DATA_ROOT/data/scfoundation/models.ckpt}"
 [[ -f $CKPT ]] || {
   echo "scfoundation/run.sh: checkpoint not found at '$CKPT'. Set OMNI_SCFOUNDATION_CKPT or run" >&2
   echo "  OMNI_SCFOUNDATION_URL=<http(s)|file://...> pixi run fetch-scfoundation-model" >&2; exit 3; }
@@ -79,7 +87,7 @@ cp "$(realpath "$data_h5ad")" "$wd/data/gears_pert_data/$ds/perturb_processed.h5
 # it as the dataset's go.csv -> get_go_auto just reads it (seconds). Precedence:
 #   OMNI_SCF_GO env > data/godata/go_essential_all.csv (side-load) > a non-placeholder
 #   --data.go (>1 line) > else the fork computes it (the slow path; avoid on a single GPU).
-GO_ESSENTIAL="${OMNI_SCF_GO:-$REPO/data/godata/go_essential_all.csv}"
+GO_ESSENTIAL="${OMNI_SCF_GO:-$DATA_ROOT/data/godata/go_essential_all.csv}"
 if [[ -f $GO_ESSENTIAL ]]; then
   cp "$GO_ESSENTIAL" "$wd/data/gears_pert_data/$ds/go.csv"
 elif [[ -n $data_go && $(wc -l < "$data_go") -gt 1 ]]; then
@@ -88,7 +96,7 @@ fi
 if [[ -n "${OMNI_GEARS_CACHE:-}" && -d "$OMNI_GEARS_CACHE" ]]; then
   cp -n "$OMNI_GEARS_CACHE"/*.pkl "$wd/data/gears_pert_data/" 2>/dev/null || true
 fi
-gene2go="${gene2go:-$REPO/data/godata/gene2go_all.pkl}"
+gene2go="${gene2go:-$DATA_ROOT/data/godata/gene2go_all.pkl}"
 [[ -f $gene2go ]] && cp "$gene2go" "$wd/data/gears_pert_data/gene2go_all.pkl"
 cfg="config"; rid="result"
 cp "$split" "$wd/results/$cfg"

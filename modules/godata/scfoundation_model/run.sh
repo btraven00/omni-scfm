@@ -1,59 +1,54 @@
 #!/usr/bin/env bash
-# Side-load fetcher: scFoundation pretrained checkpoint (models.ckpt, ~GB).
+# Side-load fetcher: scFoundation pretrained checkpoint (models.ckpt, ~1.43GB).
 #
-# Like the gene2go fetcher, this is NOT an OB stage — the checkpoint is an external
-# global resource and OB 0.5.1 can't wire one into the per-dataset lineage (it'd be
-# silently dropped; see modules/godata/gene2go/run.sh). So it's side-loaded once into
-# data/scfoundation/ and the scfoundation module reads it (OMNI_SCFOUNDATION_CKPT
-# defaults there).
+# Uses hapiq the same way the omni-data module does — `hapiq download url <uri> --hash`
+# — so the checkpoint is fetched + provenance-verified with the project's standard
+# downloader (NOT a bespoke urllib path). The BioMap weights live in a SharePoint
+# *folder* share-link; hapiq's SharePoint support (HEAD of github.com/btraven00/hapiq)
+# resolves a file inside it via the `#<file>` fragment trick — hence the `#models.ckpt`
+# appended to the folder URL below.
 #
-# Source is a URL you provide (the BioMap weights live behind SharePoint, not
-# script-friendly): http(s) OR a local file:// — both handled by urllib.
-#
-# TODO(reproducibility): the canonical source is a BioMap SharePoint PublicSharedfiles
-# folder (auth-walled, not scriptable today). When hapiq / omni-data gain SharePoint
-# support, make this a proper omni-data download module with:
-#   url    https://hopebio2020.sharepoint.com/:f:/s/PublicSharedfiles/IgBlEJ72TBE5Q76AmgXbgjXiAR69fzcrgzqgUYdSThPLrqk#models.ckpt
-#   sha256 9f40bf324d3d0084c4b288d06f5af4fddd12206e2a3f022551d12e89e33a0ea9  (0.1B maeautobin, 1432587886 bytes)
-# Until then: download manually + point OMNI_SCFOUNDATION_URL at a local file:// or a
-# mirror (Figshare/Zenodo/S3) with OMNI_SCFOUNDATION_MD5. NB: weights are under
-# scFoundation's separate MODEL_LICENSE — check redistribution terms before mirroring.
+# REQUIREMENTS:
+#   - hapiq with SharePoint support (HEAD; the conda/omnidata hapiq predates it). Until
+#     it's released to the channel, build HEAD (`go build`) and put it on PATH.
+#   - It is NOT an OB DAG node — the checkpoint is an external/global resource and OB
+#     0.5.1 would silently drop it as a method input (see modules/godata/gene2go).
 #
 # Usage:
-#   OMNI_SCFOUNDATION_URL='https://…/models.ckpt'      pixi run fetch-scfoundation-model
-#   OMNI_SCFOUNDATION_URL='file:///abs/path/models.ckpt' pixi run fetch-scfoundation-model
-#   [OMNI_SCFOUNDATION_MD5=<md5>] to verify.
+#   pixi run fetch-scfoundation-model                         # default SharePoint URL+hash
+#   OMNI_SCFOUNDATION_URL='https://…#models.ckpt' pixi run fetch-scfoundation-model
+#   OMNI_SCFOUNDATION_URL='file:///abs/models.ckpt' …         # a local mirror
 # Output: <output_dir>/models.ckpt
 set -euo pipefail
 
-url="${OMNI_SCFOUNDATION_URL:-}"
-md5="${OMNI_SCFOUNDATION_MD5:-}"
+# Canonical source: BioMap PublicSharedfiles SharePoint folder + the file fragment.
+DEFAULT_URL='https://hopebio2020.sharepoint.com/:f:/s/PublicSharedfiles/IgBlEJ72TBE5Q76AmgXbgjXiAR69fzcrgzqgUYdSThPLrqk#models.ckpt'
+url="${OMNI_SCFOUNDATION_URL:-$DEFAULT_URL}"
+hash="${OMNI_SCFOUNDATION_HASH:-sha256:9f40bf324d3d0084c4b288d06f5af4fddd12206e2a3f022551d12e89e33a0ea9}"
 output_dir=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output_dir) output_dir="$2"; shift 2 ;;
     --url)        url="$2";        shift 2 ;;
-    --md5)        md5="$2";        shift 2 ;;
+    --hash)       hash="$2";       shift 2 ;;
     --name)       shift 2 ;;
     *)            shift ;;
   esac
 done
 [[ -n $output_dir ]] || { echo "scfoundation_model/run.sh: need --output_dir" >&2; exit 2; }
-[[ -n $url ]] || { echo "scfoundation_model/run.sh: set OMNI_SCFOUNDATION_URL (http(s):// or file://)" >&2; exit 2; }
+command -v hapiq >/dev/null || { echo "scfoundation_model/run.sh: hapiq not on PATH (need HEAD with SharePoint support)" >&2; exit 3; }
 mkdir -p "$output_dir"
-out="$output_dir/models.ckpt"
 
-python - "$url" "$out" "$md5" <<'PY'
-import hashlib, shutil, sys, urllib.request
-url, out, want = sys.argv[1], sys.argv[2], sys.argv[3]
-req = urllib.request.Request(url, headers={"User-Agent": "omni-scfm scfoundation fetch"})
-with urllib.request.urlopen(req) as r, open(out, "wb") as f:
-    shutil.copyfileobj(r, f)
-if want:
-    got = hashlib.md5(open(out, "rb").read()).hexdigest()
-    if got != want:
-        sys.exit(f"scfoundation ckpt md5 mismatch: got {got}, want {want}")
-    print(f"scfoundation: fetched {out} (md5 {got})")
-else:
-    print(f"scfoundation: fetched {out} (no md5 check)")
-PY
+# file:// — hapiq's url downloader is for http(s); a local mirror just gets copied.
+case "$url" in
+  file://*) cp "${url#file://}" "$output_dir/models.ckpt"; echo "copied local mirror -> $output_dir/models.ckpt"; exit 0 ;;
+esac
+
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+# omni-data's invocation: hapiq download url <uri> --out <dir> --hash <algo:hex> -y
+hapiq download url "$url" --out "$tmp" --hash "$hash" -y
+ckpt=$(find "$tmp" -type f -name '*.ckpt' -o -type f -name 'models.ckpt' 2>/dev/null | head -1)
+[[ -z $ckpt ]] && ckpt=$(find "$tmp" -type f -not -name 'hapiq.json' | head -1)
+[[ -n $ckpt ]] || { echo "scfoundation_model/run.sh: no file downloaded" >&2; exit 1; }
+mv "$ckpt" "$output_dir/models.ckpt"
+echo "scfoundation: fetched $output_dir/models.ckpt (hapiq, hash-verified)"
