@@ -15,3 +15,4 @@ entrypoints:
   additive: modules/methods/additive/run.sh
   gears: modules/methods/gears/run.sh
   cpa: modules/methods/cpa/run.sh
+  scfoundation: modules/methods/scfoundation/run.sh

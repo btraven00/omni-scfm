@@ -149,3 +149,73 @@ def test_cpa_entrypoint():
         extra_env={"OMNI_CPA_CACHE": str(cache)},
     )
     _assert_predictions(out, proc)
+
+
+def _scf_env_bin() -> Path | None:
+    if (ov := os.environ.get("OMNI_SCFOUNDATION_ENV_BIN")) and (Path(ov) / "python").exists():
+        return Path(ov)
+    return _env_bin("scfoundation-gpu")
+
+
+def _scf_ckpt() -> Path | None:
+    p = Path(os.environ.get("OMNI_SCFOUNDATION_CKPT", REPO / "data" / "scfoundation" / "models.ckpt"))
+    return p if p.exists() else None
+
+
+@pytest.mark.integration
+def test_scfoundation_env_imports():
+    """Env-good guard (no GPU/checkpoint needed): the deps import and the VENDORED
+    forked GEARS resolves at 0.0.2 (shadowing pip cell-gears) — what run_scfoundation.py
+    asserts. Skips only if the env is absent."""
+    sb = _scf_env_bin()
+    if sb is None:
+        pytest.skip("scfoundation env not available (set OMNI_SCFOUNDATION_ENV_BIN or build envs/scfoundation-gpu.yml)")
+    env = os.environ.copy()
+    env["PYTHONNOUSERSITE"] = "1"
+    env["PYTHONPATH"] = (f"{REPO/'vendor'/'scfoundation'/'scfoundation_gears'}:"
+                         f"{REPO/'vendor'/'scfoundation'/'model'}")
+    check = (
+        "import torch, torch_geometric, einops, local_attention, scanpy, gears, gears.version;"
+        "assert gears.version.__version__=='0.0.2', gears.version.__version__;"
+        "assert 'vendor/scfoundation' in gears.__file__, gears.__file__;"
+        "print('ok')"
+    )
+    r = subprocess.run([str(sb / "python"), "-c", check], env=env, capture_output=True, text=True)
+    assert r.returncode == 0, f"scfoundation env import failed:\n{r.stdout}\n{r.stderr}"
+
+
+@pytest.mark.integration
+def test_scfoundation_entrypoint():
+    sb = _scf_env_bin()
+    if sb is None:
+        pytest.skip("scfoundation env not available")
+    if not _has_cuda(sb):
+        pytest.skip("no CUDA device (run_scfoundation.py trains on GPU)")
+    ckpt = _scf_ckpt()
+    if ckpt is None:
+        pytest.skip("no scFoundation checkpoint (OMNI_SCFOUNDATION_CKPT / fetch-scfoundation-model)")
+    cache = _gene2go_dir()
+    if cache is None:
+        pytest.skip("no GEARS gene2go cache (scratch/scf/pertdata)")
+    # norman_tiny isn't scFoundation-shaped: the forked GEARS needs obs['total_count'] +
+    # uns['non_zeros_gene_idx'], which are pre-baked in scFoundation's distributed
+    # _withtotalcount h5ad but DROPPED by our stock 0.1.2 preprocess. Validate on a
+    # scFoundation-preprocessed substrate (set OMNI_SCFOUNDATION_FIXTURE to its dir).
+    fixture = os.environ.get("OMNI_SCFOUNDATION_FIXTURE")
+    if not fixture:
+        pytest.skip("norman_tiny lacks scFoundation fields (obs.total_count, uns.non_zeros_gene_idx); "
+                    "set OMNI_SCFOUNDATION_FIXTURE to a scFoundation-preprocessed tiny dataset dir")
+    fx = Path(fixture); name = fx.name
+    out = Path(tempfile.mkdtemp())
+    env = os.environ.copy()
+    env["PATH"] = f"{sb}:{env['PATH']}"
+    env.update({"OMNI_GEARS_CACHE": str(cache), "OMNI_SCFOUNDATION_CKPT": str(ckpt),
+                "OMNI_SCF_EPOCHS": "1"})
+    proc = subprocess.run(
+        ["bash", "modules/methods/scfoundation/run.sh", "--output_dir", str(out),
+         "--name", name, "--data.h5ad", str(fx / f"{name}.h5ad"),
+         "--data.go", str(fx / f"{name}.go.csv"),
+         "--split.set2conditions", str(fx / f"{name}.set2conditions.json"), "--seed", "1"],
+        cwd=REPO, env=env, capture_output=True, text=True)
+    assert proc.returncode == 0, f"run.sh failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}"
+    assert (out / f"{name}.predictions.json.gz").exists()

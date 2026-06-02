@@ -112,6 +112,32 @@ omnipath = "*"
 [feature.gears-gpu.system-requirements]
 cuda = "12"
 
+# scfoundation-gpu: the scFoundation method (forked GEARS 0.0.2 + a maeautobin encoder
+# backbone). All-pip like cpa-gpu; torch 2.0.1's default PyPI wheel is cu117; the encoder
+# uses local-attention (no flash-attn). The forked gears 0.0.2 is vendored and put on
+# sys.path by the module — pip cell-gears 0.1.2 only supplies shared deps. Mirror:
+# envs/scfoundation-gpu.yml (hand-maintained for OB).
+[feature.scfoundation-gpu.dependencies]
+python = "3.10.*"
+pip = "*"
+
+[feature.scfoundation-gpu.pypi-dependencies]
+torch = "==2.0.1"
+torchvision = "==0.15.2"   # scFoundation encoder (modules/encoders.py) imports it
+torch-geometric = "==2.5.3"
+cell-gears = "==0.1.2"
+einops = "==0.8.0"
+local-attention = "==1.9.14"
+omegaconf = "==2.3.0"      # scFoundation encoder config (modules/encoders.py)
+torch-summary = "==1.4.5"
+numpy = "==1.26.4"
+scipy = "==1.13.1"
+scanpy = "==1.10.1"
+session-info = "==1.0.0"
+
+[feature.scfoundation-gpu.system-requirements]
+cuda = "12"
+
 # r: Bioconductor env to run the paper's R scripts verbatim (mean, lpm, ...).
 # Reads .h5ad via picklerick (native Rust->R, no basilisk/Python); zellkonverter
 # stays installed only so the scripts' `zellkonverter::readH5AD` resolves —
@@ -180,6 +206,7 @@ r = { features = ["r"] }
 gears = { features = ["gears"] }
 gears-gpu = { features = ["gears-gpu"] }
 cpa-gpu = { features = ["cpa-gpu"] }
+scfoundation-gpu = { features = ["scfoundation-gpu"] }
 omnipath = { features = ["omnipath"] }
 dashboard = { features = ["base", "dashboard"] }
 
@@ -197,3 +224,6 @@ collect = { cmd = "python -m omni_scfm.collect", env = { PYTHONPATH = "src" } }
 # split/method modules default to data/godata/gene2go_all.pkl; run this before `ob run`
 # so GEARS doesn't re-download ~9MB per split/method/seed. See modules/godata/gene2go.
 fetch-godata = "bash modules/godata/gene2go/run.sh --output_dir data/godata"
+# Side-load the scFoundation checkpoint (~GB) into data/scfoundation/ from a URL you
+# provide: `OMNI_SCFOUNDATION_URL='https://…|file:///…' pixi run fetch-scfoundation-model`.
+fetch-scfoundation-model = "bash modules/godata/scfoundation_model/run.sh --output_dir data/scfoundation"

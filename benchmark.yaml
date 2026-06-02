@@ -35,6 +35,10 @@ software_environments:
     name: CPA GPU env (paper-pinned)
     description: cpa-tools 0.8.8 / scvi-tools 0.20.3 / torch cu118 for the CPA method (trains on cuda)
     conda: envs/cpa-gpu.yml
+  scfoundation-gpu:
+    name: scFoundation GPU env (paper-pinned)
+    description: forked gears 0.0.2 (vendored) + maeautobin encoder; torch 2.0.1 cu117 + local-attention
+    conda: envs/scfoundation-gpu.yml
 
 stages:
   # 1. Download raw data (reproducible, via the omni-data remote module).
@@ -49,8 +53,8 @@ stages:
         # NB: additive is degenerate on this single-pert dataset (every "double" is a
         # single -> leakage). `exclude` does not prune in OB 0.5.1, so the collector's
         # DOUBLE_ONLY filter drops additive's single-pert rows instead (see collect.py).
-        # cpa is doubles-only (paper reports it on norman_from_scfoundation only).
-        exclude: ["additive", "cpa"]
+        # cpa + scfoundation are norman_from_scfoundation-only (paper scope).
+        exclude: ["additive", "cpa", "scfoundation"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e  # fix/downloadsh-extensionless-naming (robust naming)
@@ -60,9 +64,9 @@ stages:
       - id: norman
         name: "Norman 2019 (GEARS-processed, Harvard Dataverse) — double perturbations"
         software_environment: "omni_data"
-        # cpa runs only on the scfoundation substrate (the paper's CPA target); keep
-        # it off plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
-        exclude: ["cpa"]
+        # cpa + scfoundation run only on the scfoundation substrate; keep them off
+        # plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
+        exclude: ["cpa", "scfoundation"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e
@@ -215,3 +219,20 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: cpa
+      # scFoundation (foundation model = vendored forked GEARS 0.0.2 + maeautobin encoder).
+      # norman_from_scfoundation only (its raison d'être) — `exclude: ["scfoundation"]` on
+      # the adamson + norman dataset modules (same inverse-scoping as cpa). Needs the
+      # side-loaded checkpoint (OMNI_SCFOUNDATION_CKPT / fetch-scfoundation-model).
+      - id: scfoundation
+        name: "scFoundation (foundation model; run_scfoundation.py, vendored fork 0.0.2)"
+        software_environment: "scfoundation-gpu"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: scfoundation
+        # GPU knobs surfaced explicitly (passed to run.sh as --batch_size/--epochs).
+        # batch_size: paper default 6 (fits a 24GB L4); drop it if a smaller GPU OOMs —
+        # NB batch_size=1 breaks the model's BatchNorm, so keep it >=2. epochs: paper 15.
+        parameters:
+          - batch_size: [6]
+            epochs: [15]

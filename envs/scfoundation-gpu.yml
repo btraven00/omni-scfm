@@ -1,0 +1,28 @@
+name: scfoundation-gpu
+channels:
+- conda-forge
+- bioconda
+# Env for the scFoundation method (run_scfoundation.py = forked GEARS 0.0.2 with a
+# scFoundation maeautobin encoder loaded as the backbone). Curated from the paper's
+# scfoundation_env.yml. torch 2.0.1's default PyPI wheel is the cu117 build. The
+# scFoundation encoder uses `local-attention` (NOT flash-attn), so this resolves like
+# cpa-gpu. The forked gears 0.0.2 is VENDORED (vendor/scfoundation/scfoundation_gears)
+# and put on sys.path by the module — the pip cell-gears 0.1.2 here only supplies the
+# shared deps (it's shadowed at import time). Mirror: pixi feature scfoundation-gpu.
+# NOT yet validated on the GPU box — validate end-to-end before a production run.
+dependencies:
+- python 3.10.*
+- pip
+- pip:
+  - torch==2.0.1
+  - torchvision==0.15.2   # scFoundation encoder (modules/encoders.py) imports it
+  - torch-geometric==2.5.3
+  - cell-gears==0.1.2
+  - einops==0.8.0
+  - local-attention==1.9.14
+  - omegaconf==2.3.0   # scFoundation encoder config (modules/encoders.py)
+  - torch-summary==1.4.5
+  - numpy==1.26.4
+  - scipy==1.13.1
+  - scanpy==1.10.1
+  - session-info==1.0.0

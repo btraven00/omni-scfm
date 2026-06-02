@@ -1,0 +1,8 @@
+Vendored from biomap-research/scFoundation @ 397631c495eddf9ad6644fc00c6ea8139e651245
+(Apache License 2.0 — see ./LICENSE; model weights under a separate MODEL_LICENSE).
+
+  scfoundation_gears/  = scFoundation's forked GEARS (gears.version == 0.0.2), required
+                         by run_scfoundation.py (asserts that version). data/ blobs
+                         (demo.h5ad, gene2go.pkl) excluded — gene2go is side-loaded.
+  model/               = scFoundation encoder code (maeautobin) loaded as the GEARS
+                         backbone via load_path=<models.ckpt> (checkpoint side-loaded).

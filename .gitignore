@@ -7,6 +7,8 @@ scratch/
 
 # Side-loaded reference data (fetched by `pixi run fetch-godata`, md5-pinned, ~9MB)
 data/godata/
+# Side-loaded scFoundation checkpoint (fetch-scfoundation-model, ~GB)
+data/scfoundation/
 
 # Python
 __pycache__/

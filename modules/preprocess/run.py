@@ -108,6 +108,13 @@ def _new_data_process_scfoundation(raw_h5ad: Path, name: str, workdir: Path):
     adata.uns["log1p"] = {"base": None}
     pert = PertData(str(folder))
     pert.new_data_process(dataset_name=name, adata=adata)
+    # new_data_process produces the GEARS uns DE fields AND retains the scFoundation-
+    # specific fields the raw _withtotalcount h5ad carries; we return the full adata so
+    # they survive into {dataset}.h5ad. The scfoundation method's forked GEARS REQUIRES:
+    #   obs['total_count']         -> read depth appended per cell in the fork's
+    #                                 create_cell_graph_dataset (pertdata.py:349,360)
+    #   uns['non_zeros_gene_idx']  -> read in the fork's GEARS.__init__ (gears.py:74)
+    # (additive/cpa ignore both — they only use X + conditions; see scfoundation-method.)
     return ad.read_h5ad(folder / name / "perturb_processed.h5ad")
 
 
