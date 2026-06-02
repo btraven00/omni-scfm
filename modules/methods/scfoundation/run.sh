@@ -29,6 +29,13 @@
 #   {dataset}.gene_names.json
 set -euo pipefail
 export PYTHONNOUSERSITE=1
+# Reduce CUDA fragmentation so batch_size=6 fits a 24GB GPU: on the real substrate the
+# GNN graphs (G_coexpress over 19264 genes + G_go) pin ~15GB, and at batch=6 the encoder
+# forward needs ~4GB more — which OOMs only because ~4GB is lost to allocator fragmentation
+# (reserved >> allocated). This is a pure allocator hint, NO numerical effect, so it keeps
+# the paper's batch=6 (unlike lowering OMNI_SCF_BATCH, which changes BatchNorm). (torch
+# 2.0.1 supports max_split_size_mb but NOT expandable_segments.)
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-max_split_size_mb:128}"
 
 REPO="$(pwd)"
 WRAPPER="$REPO/modules/methods/gears_wrapper.py"            # scipy/pandas shim + runpy
