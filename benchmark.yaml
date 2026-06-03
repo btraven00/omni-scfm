@@ -231,8 +231,13 @@ stages:
           commit: HEAD
           entrypoint: scfoundation
         # GPU knobs surfaced explicitly (passed to run.sh as --batch_size/--epochs).
-        # batch_size: paper default 6 (fits a 24GB L4); drop it if a smaller GPU OOMs —
-        # NB batch_size=1 breaks the model's BatchNorm, so keep it >=2. epochs: paper 15.
+        # batch_size: the PAPER USES 6, but on the real norman_from_scfoundation substrate
+        # that needs ~23GB and OOMs a 24GB L4 (~22GB usable) — model + GNN graphs are ~18GB
+        # live and one encoder layer's forward needs ~5GB; no allocator/no_grad trick bridges
+        # a real need. So we run batch_size=4 here (the encoder activation + per-cell state
+        # scale with batch). DEVIATION FROM PAPER: batch_size feeds BatchNorm in the GEARS
+        # head, so 4 != 6 numerically (small, documented). Faithful batch=6 needs a >24GB GPU
+        # (A100 40GB+). batch_size=1 breaks BatchNorm entirely, so keep it >=2. epochs: paper 15.
         parameters:
-          - batch_size: [6]
+          - batch_size: [4]
             epochs: [15]
