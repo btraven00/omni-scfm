@@ -39,6 +39,10 @@ software_environments:
     name: scFoundation GPU env (paper-pinned)
     description: forked gears 0.0.2 (vendored) + maeautobin encoder; torch 2.0.1 cu117 + local-attention
     conda: envs/scfoundation-gpu.yml
+  scgpt-gpu:
+    name: scGPT GPU env (paper-pinned, bit-faithful flashattn_env)
+    description: scgpt 0.2.1 + flash-attn 1.0.4 + cell-gears 0.0.2; torch 1.13.1 cu117 (use_fast_transformer=True)
+    conda: envs/scgpt-gpu.yml
 
 stages:
   # 1. Download raw data (reproducible, via the omni-data remote module).
@@ -53,8 +57,8 @@ stages:
         # NB: additive is degenerate on this single-pert dataset (every "double" is a
         # single -> leakage). `exclude` does not prune in OB 0.5.1, so the collector's
         # DOUBLE_ONLY filter drops additive's single-pert rows instead (see collect.py).
-        # cpa + scfoundation are norman_from_scfoundation-only (paper scope).
-        exclude: ["additive", "cpa", "scfoundation"]
+        # cpa + scfoundation + scgpt are norman_from_scfoundation-only (paper scope, first cut).
+        exclude: ["additive", "cpa", "scfoundation", "scgpt"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e  # fix/downloadsh-extensionless-naming (robust naming)
@@ -64,9 +68,9 @@ stages:
       - id: norman
         name: "Norman 2019 (GEARS-processed, Harvard Dataverse) — double perturbations"
         software_environment: "omni_data"
-        # cpa + scfoundation run only on the scfoundation substrate; keep them off
-        # plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
-        exclude: ["cpa", "scfoundation"]
+        # cpa + scfoundation + scgpt run only on the scfoundation substrate (first cut);
+        # keep them off plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
+        exclude: ["cpa", "scfoundation", "scgpt"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e
@@ -240,4 +244,29 @@ stages:
         # (A100 40GB+). batch_size=1 breaks BatchNorm entirely, so keep it >=2. epochs: paper 15.
         parameters:
           - batch_size: [4]
+            epochs: [15]
+      # scGPT (transformer foundation model; verbatim run_scgpt.py + the side-loaded
+      # whole-human checkpoint). FIRST CUT scoped to norman_from_scfoundation only
+      # (`exclude: ["scgpt"]` on the adamson + norman dataset modules, same inverse-
+      # scoping as cpa/scfoundation). For that substrate run_scgpt.py reuses the SAME
+      # vendored forked GEARS 0.0.2 as scfoundation (the module sed-patches its two
+      # sys.path inserts). BIT-FAITHFUL env (scgpt-gpu = the paper's flashattn_env:
+      # flash-attn 1.0.4 + use_fast_transformer=True). Needs the side-loaded checkpoint
+      # DIR (OMNI_SCGPT_MODEL / fetch-scgpt-model). TODO: broaden to adamson/norman (the
+      # script's else-branch + stock cell-gears 0.0.2 essential_all_data_pert_genes.pkl).
+      - id: scgpt
+        name: "scGPT (foundation model; run_scgpt.py, scgpt 0.2.1 + flash-attn 1.0.4)"
+        software_environment: "scgpt-gpu"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: scgpt
+        # GPU knobs surfaced explicitly (passed to run.sh as --batch_size/--epochs).
+        # Unlike scfoundation, scGPT has NO BatchNorm in this path (no >=2 floor), but
+        # batch_size still sets the SGD averaging granularity -> it DOES change the training
+        # trajectory, so faithful = the paper's 64 (don't lower it for the production run).
+        # batch=64 needs a >8GB GPU; the laptop port validates plumbing only, the real run
+        # is deferred to the target GPU box (see [[scgpt-method]]). epochs: paper 15.
+        parameters:
+          - batch_size: [64]
             epochs: [15]

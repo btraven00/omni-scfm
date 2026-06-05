@@ -198,6 +198,71 @@ session-info = "==1.0.0"
 [feature.cpa-gpu.system-requirements]
 cuda = "12"
 
+# scgpt-gpu: the scGPT method (run_scgpt.py = a pretrained scGPT TransformerGenerator
+# fine-tuned on the GEARS dataloader). BIT-FAITHFUL to the paper's flashattn_env: torch
+# 1.13.1 (PyPI default == cu117, like the paper's +cu117), torchtext 0.14.0 (classic
+# GeneVocab API — no shim), flash-attn 1.0.4 (use_fast_transformer=True needs it),
+# scgpt 0.2.1, cell-gears 0.0.2 (the fork; vendored fork shadows it for
+# norman_from_scfoundation). The full frozen pin set lives in envs/scgpt-gpu.yml (what
+# OB builds); this curated subset is for local pixi dev. scgpt/cell-gears/flash-attn go
+# through the postinstall task (--no-deps to dodge cell-gears' strict pins; flash-attn
+# --no-build-isolation so torch is importable at its CUDA-extension build). Mirror style:
+# the gears-postinstall + scfoundation-gpu features.
+# The nvidia channel supplies the CUDA 11.7 toolkit (nvcc + headers) used to COMPILE
+# flash-attn 1.0.4 from source — torch's pip wheel ships only the CUDA *runtime*
+# (cudnn/cublas/nvrtc), never nvcc, so the build needs an env-local 11.7 toolkit (matching
+# torch's cu117). Pinning it here makes the GPU-box build reproducible (no system CUDA assumed).
+[feature.scgpt-gpu]
+channels = ["nvidia", "conda-forge", "bioconda"]
+
+[feature.scgpt-gpu.dependencies]
+python = "3.10.*"
+pip = "*"
+cuda-nvcc = "11.7.*"        # nvcc, to compile flash-attn 1.0.4's CUDA extension (cu117)
+cuda-cudart-dev = "11.7.*"  # CUDA runtime headers the build #includes
+
+[feature.scgpt-gpu.pypi-dependencies]
+torch = "==1.13.1"            # PyPI default wheel == the cu117 build (== paper's +cu117)
+torchvision = "==0.14.1"
+# torchtext 0.14.0 is installed --no-deps in the postinstall: its metadata pins
+# torch==1.13.0 *exactly*, which makes the solve unsatisfiable against the paper's
+# torch 1.13.1 — but 0.14.0 runs fine on 1.13.1 (what the paper's env actually did).
+torch-geometric = "==2.5.3"
+numpy = "==1.23.5"
+scipy = "==1.13.0"
+pandas = "==2.2.2"
+scikit-learn = "==1.5.0"
+scanpy = "==1.10.1"
+anndata = "==0.10.7"
+networkx = "==3.3"
+numba = "==0.59.1"
+h5py = "==3.11.0"
+einops = "==0.8.0"
+orbax = "==0.1.7"
+ninja = "*"                  # flash-attn 1.0.4 builds its CUDA extension with ninja
+# NB: don't pin `packaging` here — the conda `pip` pins it (26.x) and a pypi `==24.0`
+# (the paper's value) makes the solve unsatisfiable. packaging is a build/meta tool with
+# no numerical effect, so the conda-resolved version is fine (envs/scgpt-gpu.yml, the
+# OB-faithful all-pip env, keeps the exact 24.0 pin).
+session-info = "==1.0.0"
+
+[feature.scgpt-gpu.tasks]
+# scgpt, the forked cell-gears 0.0.2, and torchtext 0.14.0 are --no-deps (their strict
+# == pins fight the resolved stack — torchtext pins torch==1.13.0, cell-gears its own
+# closure); flash-attn 1.0.4 is --no-build-isolation so the already-installed torch is
+# importable while it compiles its CUDA ext against the env-local cuda-nvcc 11.7. Run
+# after `pixi install -e scgpt-gpu`.
+# PRE-AUTHORIZED FALLBACK (if the 1.0.4 source build still fights the box): relax ONLY
+# flash-attn — keep torch/scgpt/cell-gears bit-faithful and either swap in a prebuilt
+# flash-attn that still exposes FlashMHA, or set use_fast_transformer=False (a one-line,
+# documented deviation à la scfoundation's batch=4). Do NOT escape the rest to a newer stack.
+scgpt-postinstall = """python -m pip install --no-deps scgpt==0.2.1 cell-gears==0.0.2 torchtext==0.14.0 \
+&& python -m pip install --no-build-isolation flash-attn==1.0.4"""
+
+# Same __cuda caveat as gears-gpu: pixi doesn't auto-detect the driver for local installs.
+[feature.scgpt-gpu.system-requirements]
+cuda = "12"
+
 # --- environments (pixi solves each independently) --------------------------
 [environments]
 default = { features = ["base"] }
@@ -207,6 +272,7 @@ gears = { features = ["gears"] }
 gears-gpu = { features = ["gears-gpu"] }
 cpa-gpu = { features = ["cpa-gpu"] }
 scfoundation-gpu = { features = ["scfoundation-gpu"] }
+scgpt-gpu = { features = ["scgpt-gpu"] }
 omnipath = { features = ["omnipath"] }
 dashboard = { features = ["base", "dashboard"] }
 
@@ -231,3 +297,7 @@ fetch-go-essential = "bash modules/godata/go_essential/run.sh --output_dir data/
 # Side-load the scFoundation checkpoint (~GB) into data/scfoundation/ from a URL you
 # provide: `OMNI_SCFOUNDATION_URL='https://…|file:///…' pixi run fetch-scfoundation-model`.
 fetch-scfoundation-model = "bash modules/godata/scfoundation_model/run.sh --output_dir data/scfoundation"
+# Side-load the scGPT whole-human checkpoint DIR into data/scgpt/scGPT_human/ (hash-pinned).
+# Primary: copy a local mirror — `OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model`;
+# else gdown the public Drive folder (default OMNI_SCGPT_URL=gdrive://<id>). See [[scgpt-method]].
+fetch-scgpt-model = "bash modules/godata/scgpt_model/run.sh --output_dir data/scgpt"

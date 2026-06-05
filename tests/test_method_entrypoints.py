@@ -219,3 +219,82 @@ def test_scfoundation_entrypoint():
         cwd=REPO, env=env, capture_output=True, text=True)
     assert proc.returncode == 0, f"run.sh failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}"
     assert (out / f"{name}.predictions.json.gz").exists()
+
+
+def _scgpt_env_bin() -> Path | None:
+    if (ov := os.environ.get("OMNI_SCGPT_ENV_BIN")) and (Path(ov) / "python").exists():
+        return Path(ov)
+    return _env_bin("scgpt-gpu")
+
+
+def _scgpt_model() -> Path | None:
+    p = Path(os.environ.get("OMNI_SCGPT_MODEL", REPO / "data" / "scgpt" / "scGPT_human"))
+    return p if (p / "best_model.pt").exists() else None
+
+
+@pytest.mark.integration
+def test_scgpt_env_imports():
+    """Env-good guard (no GPU/checkpoint needed): the bit-faithful deps import and resolve
+    at the paper's pins — scgpt 0.2.1 classes, the classic torchtext.vocab.Vocab API (so no
+    shim is needed), cell-gears 0.0.2 (run_scgpt.py asserts it), and flash-attn 1.0.4 is
+    *installed* (metadata check — importing the CUDA ext needs a GPU). For the
+    norman_from_scfoundation path the VENDORED fork shadows cell-gears on sys.path, so we
+    also check it resolves to 0.0.2 from vendor/scfoundation. Skips only if the env is absent."""
+    sb = _scgpt_env_bin()
+    if sb is None:
+        pytest.skip("scgpt env not available (set OMNI_SCGPT_ENV_BIN or build envs/scgpt-gpu.yml)")
+    env = os.environ.copy()
+    env["PYTHONNOUSERSITE"] = "1"
+    # Mirror the module: vendored forked GEARS 0.0.2 ahead of the env's cell-gears.
+    env["PYTHONPATH"] = (f"{REPO/'vendor'/'scfoundation'/'scfoundation_gears'}:"
+                         f"{REPO/'vendor'/'scfoundation'/'model'}")
+    check = (
+        "import torch, torch_geometric, scanpy;"
+        "from torchtext.vocab import Vocab;"                       # classic API run_scgpt.py imports
+        "from scgpt.model import TransformerGenerator;"
+        "from scgpt.tokenizer.gene_tokenizer import GeneVocab;"
+        "from importlib.metadata import version;"
+        "assert version('flash-attn')=='1.0.4', version('flash-attn');"
+        "import gears, gears.version;"
+        "assert gears.version.__version__=='0.0.2', gears.version.__version__;"
+        "assert 'vendor/scfoundation' in gears.__file__, gears.__file__;"
+        "print('ok')"
+    )
+    r = subprocess.run([str(sb / "python"), "-c", check], env=env, capture_output=True, text=True)
+    assert r.returncode == 0, f"scgpt env import failed:\n{r.stdout}\n{r.stderr}"
+
+
+@pytest.mark.integration
+def test_scgpt_entrypoint():
+    sb = _scgpt_env_bin()
+    if sb is None:
+        pytest.skip("scgpt env not available")
+    if not _has_cuda(sb):
+        pytest.skip("no CUDA device (run_scgpt.py trains on GPU)")
+    model = _scgpt_model()
+    if model is None:
+        pytest.skip("no scGPT checkpoint (OMNI_SCGPT_MODEL / fetch-scgpt-model)")
+    cache = _gene2go_dir()
+    if cache is None:
+        pytest.skip("no GEARS gene2go cache (scratch/scf/pertdata)")
+    # Scope is norman_from_scfoundation, so the fixture must be scFoundation-shaped (the
+    # forked GEARS needs obs['total_count'] + uns['non_zeros_gene_idx'] — same gate as the
+    # scfoundation entrypoint test). Set OMNI_SCGPT_FIXTURE to its dir.
+    fixture = os.environ.get("OMNI_SCGPT_FIXTURE") or os.environ.get("OMNI_SCFOUNDATION_FIXTURE")
+    if not fixture:
+        pytest.skip("norman_tiny lacks scFoundation fields; set OMNI_SCGPT_FIXTURE to a "
+                    "scFoundation-preprocessed tiny dataset dir")
+    fx = Path(fixture); name = fx.name
+    out = Path(tempfile.mkdtemp())
+    env = os.environ.copy()
+    env["PATH"] = f"{sb}:{env['PATH']}"
+    env.update({"OMNI_GEARS_CACHE": str(cache), "OMNI_SCGPT_MODEL": str(model),
+                "OMNI_SCGPT_EPOCHS": "1", "OMNI_SCGPT_BATCH": "8"})  # tiny + fast for the smoke test
+    proc = subprocess.run(
+        ["bash", "modules/methods/scgpt/run.sh", "--output_dir", str(out),
+         "--name", name, "--data.h5ad", str(fx / f"{name}.h5ad"),
+         "--data.go", str(fx / f"{name}.go.csv"),
+         "--split.set2conditions", str(fx / f"{name}.set2conditions.json"), "--seed", "1"],
+        cwd=REPO, env=env, capture_output=True, text=True)
+    assert proc.returncode == 0, f"run.sh failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}"
+    assert (out / f"{name}.predictions.json.gz").exists()

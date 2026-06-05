@@ -16,3 +16,4 @@ entrypoints:
   gears: modules/methods/gears/run.sh
   cpa: modules/methods/cpa/run.sh
   scfoundation: modules/methods/scfoundation/run.sh
+  scgpt: modules/methods/scgpt/run.sh

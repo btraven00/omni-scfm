@@ -1,0 +1,130 @@
+name: scgpt-gpu
+channels:
+- nvidia      # CUDA 11.7 toolkit (nvcc) to compile flash-attn 1.0.4 — see note below
+- conda-forge
+- bioconda
+# Env for the scGPT method (run_scgpt.py = a pretrained scGPT TransformerGenerator
+# fine-tuned per (split, seed) on the GEARS perturbation dataloader). This is the
+# BIT-FAITHFUL paper env, curated verbatim from the paper's
+#   vendor/paper/benchmark/conda_environments/flashattn_env.yml
+# (only the conda layer is loosened — the frozen libgcc/openssl build-strings are
+# dropped so conda-forge resolves the toolchain itself; the full pip pin set is kept
+# byte-for-byte). Mirror: pixi feature `scgpt-gpu` (curated subset for local dev).
+#
+# THE FAITHFULNESS-CRITICAL PINS:
+#   torch 1.13.1 (PyPI default == the cu117 build, same as the paper's +cu117) +
+#   torchvision 0.14.1 / torchaudio 0.13.1 / torchtext 0.14.0 (torchtext 0.14 has the
+#   classic GeneVocab API, so NO torchtext shim is needed — unlike a newer stack),
+#   flash-attn 1.0.4 (run_scgpt.py sets use_fast_transformer=True => scGPT's
+#   TransformerGenerator builds flash_attn.flash_attention.FlashMHA; this is the ONE
+#   numerically-load-bearing dep that a "newer stack" would change — do NOT bump it),
+#   scgpt 0.2.1, cell-gears 0.0.2 (the fork the paper pins; for norman_from_scfoundation
+#   the module shadows it with the VENDORED fork on sys.path, see modules/methods/scgpt/run.sh),
+#   numpy 1.23.5, scipy 1.13.0, scanpy 1.10.1, torch-geometric 2.5.3, orbax 0.1.7.
+#
+# ⚠ DEFERRED BUILD RISK (the one thing not yet validated — see [[scgpt-method]]):
+#   flash-attn 1.0.4 compiles a CUDA extension and needs torch importable at BUILD time
+#   (`pip install flash-attn==1.0.4 --no-build-isolation` with torch already present).
+#   A plain `conda env create -f` may try to build it under isolation (no torch visible)
+#   and fail. On the GPU box, build torch first, then flash-attn --no-build-isolation,
+#   then the rest. The paper shipped this env pre-built, so it never hit ordering. This
+#   is the explicit "build flashattn_env on the target GPU" TODO; the laptop (8GB) can't
+#   run the batch=64 train anyway.
+dependencies:
+- python 3.10.14
+- pip
+# CUDA 11.7 toolkit to COMPILE flash-attn 1.0.4 (torch's wheel ships only the cu117
+# runtime, never nvcc). Matches torch's cu117. If the build wants more headers (cublas
+# etc.), add cuda-libraries-dev=11.7.*. FALLBACK if it won't build: relax ONLY flash-attn
+# (prebuilt wheel exposing FlashMHA, or use_fast_transformer=False) — keep the rest faithful.
+- cuda-nvcc 11.7.*
+- cuda-cudart-dev 11.7.*
+- pip:
+  - absl-py==2.1.0
+  - aiohttp==3.9.5
+  - aiosignal==1.3.1
+  - anndata==0.10.7
+  - array-api-compat==1.6
+  - async-timeout==4.0.3
+  - attrs==23.2.0
+  - cached-property==1.5.2
+  - cell-gears==0.0.2
+  - certifi==2024.2.2
+  - charset-normalizer==3.3.2
+  - contourpy==1.2.1
+  - cycler==0.12.1
+  - datasets==2.14.5
+  - dcor==0.6
+  - decorator==5.1.1
+  - deprecated==1.2.14
+  - dill==0.3.7
+  - einops==0.8.0
+  - etils==1.7.0
+  - filelock==3.14.0
+  - flash-attn==1.0.4
+  - fonttools==4.51.0
+  - frozenlist==1.4.1
+  - fsspec==2023.6.0
+  - h5py==3.11.0
+  - huggingface-hub==0.23.1
+  - idna==3.7
+  - igraph==0.11.5
+  - importlib-resources==6.4.0
+  - jax==0.4.28
+  - jaxlib==0.4.28
+  - jinja2==3.1.4
+  - joblib==1.4.2
+  - kiwisolver==1.4.5
+  - legacy-api-wrap==1.4
+  - leidenalg==0.10.2
+  - llvmlite==0.42.0
+  - markupsafe==2.1.5
+  - matplotlib==3.9.0
+  - ml-dtypes==0.4.0
+  - msgpack==1.0.8
+  - multidict==6.0.5
+  - multiprocess==0.70.15
+  - natsort==8.4.0
+  - networkx==3.3
+  - numba==0.59.1
+  - numpy==1.23.5
+  - opt-einsum==3.3.0
+  - orbax==0.1.7
+  - packaging==24.0
+  - pandas==2.2.2
+  - patsy==0.5.6
+  - pillow==10.3.0
+  - pyarrow==16.1.0
+  - pydot==2.0.0
+  - pynndescent==0.5.12
+  - pyparsing==3.1.2
+  - python-dateutil==2.9.0.post0
+  - pytz==2024.1
+  - pyyaml==6.0.1
+  - requests==2.32.2
+  - scanpy==1.10.1
+  - scgpt==0.2.1
+  - scib==1.1.5
+  - scikit-learn==1.5.0
+  - scikit-misc==0.3.1
+  - scipy==1.13.0
+  - seaborn==0.13.2
+  - session-info==1.0.0
+  - setuptools==69.5.1
+  - six==1.16.0
+  - statsmodels==0.14.2
+  - stdlib-list==0.10.0
+  - tensorstore==0.1.59
+  - texttable==1.7.0
+  - threadpoolctl==3.5.0
+  - torch==1.13.1
+  - torch-geometric==2.5.3
+  - torchaudio==0.13.1
+  - torchtext==0.14.0
+  - torchvision==0.14.1
+  - tqdm==4.66.4
+  - typing-extensions==4.12.2
+  - umap-learn==0.5.6
+  - urllib3==2.2.1
+  - xxhash==3.4.1
+  - yarl==1.9.4
