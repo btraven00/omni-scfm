@@ -22,14 +22,20 @@ channels:
 #   the module shadows it with the VENDORED fork on sys.path, see modules/methods/scgpt/run.sh),
 #   numpy 1.23.5, scipy 1.13.0, scanpy 1.10.1, torch-geometric 2.5.3, orbax 0.1.7.
 #
-# flash-attn 1.0.4 is NOT in the pip list below — its setup.py does `import torch` at
-# build time, but conda/snakemake builds the whole pip list under BUILD ISOLATION (a fresh
-# env with no torch) -> "ModuleNotFoundError: No module named 'torch'". So it is built by
-# the snakemake POST-DEPLOY hook `scgpt-gpu.post-deploy.sh` (runs AFTER this env exists,
-# with torch installed, via --no-build-isolation against the env-local cuda-nvcc 11.7).
-# The pixi path does the same in the `scgpt-postinstall` task. FALLBACK if 1.0.4 still
-# won't compile: relax ONLY flash-attn (prebuilt FlashMHA wheel or use_fast_transformer=
-# False) — keep the rest faithful.
+# FOUR packages are NOT in the pip list below — they go through the snakemake POST-DEPLOY
+# hook `scgpt-gpu.post-deploy.sh` instead (which `pip install --no-deps`'s them AFTER this
+# env exists, with torch present). They're excluded for two reasons:
+#  - cell-gears==0.0.2 / scgpt==0.2.1 / torchtext==0.14.0: conda installs the yml's pip
+#    list with FULL dependency resolution (no --no-deps), and these carry over-strict pins
+#    that collide with torch==1.13.1 (torchtext pins torch==1.13.0 exactly; cell-gears/scgpt
+#    drag their own closures) -> "ResolutionImpossible". --no-deps in post-deploy sidesteps
+#    it; their real runtime deps already sit in the frozen list below. (The pixi path does
+#    the identical --no-deps install in the `scgpt-postinstall` task.)
+#  - flash-attn==1.0.4: its setup.py `import torch` at build time fails under conda's BUILD
+#    ISOLATION (fresh env, no torch); post-deploy builds it --no-build-isolation against the
+#    now-installed torch + the env-local cuda-nvcc 11.7.
+# FALLBACK if 1.0.4 still won't compile: relax ONLY flash-attn (prebuilt FlashMHA wheel or
+# use_fast_transformer=False) — keep the rest faithful.
 dependencies:
 - python 3.10.14
 - pip
@@ -48,7 +54,7 @@ dependencies:
   - async-timeout==4.0.3
   - attrs==23.2.0
   - cached-property==1.5.2
-  - cell-gears==0.0.2
+  # cell-gears==0.0.2 installed --no-deps by scgpt-gpu.post-deploy.sh (see header).
   - certifi==2024.2.2
   - charset-normalizer==3.3.2
   - contourpy==1.2.1
@@ -103,7 +109,7 @@ dependencies:
   - pyyaml==6.0.1
   - requests==2.32.2
   - scanpy==1.10.1
-  - scgpt==0.2.1
+  # scgpt==0.2.1 installed --no-deps by scgpt-gpu.post-deploy.sh (see header).
   - scib==1.1.5
   - scikit-learn==1.5.0
   - scikit-misc==0.3.1
@@ -122,7 +128,7 @@ dependencies:
   - torch==1.13.1
   - torch-geometric==2.5.3
   - torchaudio==0.13.1
-  - torchtext==0.14.0
+  # torchtext==0.14.0 installed --no-deps by scgpt-gpu.post-deploy.sh (pins torch==1.13.0).
   - torchvision==0.14.1
   - tqdm==4.66.4
   - typing-extensions==4.12.2
