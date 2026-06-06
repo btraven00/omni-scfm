@@ -22,14 +22,14 @@ channels:
 #   the module shadows it with the VENDORED fork on sys.path, see modules/methods/scgpt/run.sh),
 #   numpy 1.23.5, scipy 1.13.0, scanpy 1.10.1, torch-geometric 2.5.3, orbax 0.1.7.
 #
-# ⚠ DEFERRED BUILD RISK (the one thing not yet validated — see [[scgpt-method]]):
-#   flash-attn 1.0.4 compiles a CUDA extension and needs torch importable at BUILD time
-#   (`pip install flash-attn==1.0.4 --no-build-isolation` with torch already present).
-#   A plain `conda env create -f` may try to build it under isolation (no torch visible)
-#   and fail. On the GPU box, build torch first, then flash-attn --no-build-isolation,
-#   then the rest. The paper shipped this env pre-built, so it never hit ordering. This
-#   is the explicit "build flashattn_env on the target GPU" TODO; the laptop (8GB) can't
-#   run the batch=64 train anyway.
+# flash-attn 1.0.4 is NOT in the pip list below — its setup.py does `import torch` at
+# build time, but conda/snakemake builds the whole pip list under BUILD ISOLATION (a fresh
+# env with no torch) -> "ModuleNotFoundError: No module named 'torch'". So it is built by
+# the snakemake POST-DEPLOY hook `scgpt-gpu.post-deploy.sh` (runs AFTER this env exists,
+# with torch installed, via --no-build-isolation against the env-local cuda-nvcc 11.7).
+# The pixi path does the same in the `scgpt-postinstall` task. FALLBACK if 1.0.4 still
+# won't compile: relax ONLY flash-attn (prebuilt FlashMHA wheel or use_fast_transformer=
+# False) — keep the rest faithful.
 dependencies:
 - python 3.10.14
 - pip
@@ -61,7 +61,7 @@ dependencies:
   - einops==0.8.0
   - etils==1.7.0
   - filelock==3.14.0
-  - flash-attn==1.0.4
+  # flash-attn==1.0.4 is installed by scgpt-gpu.post-deploy.sh (see header) — NOT here.
   - fonttools==4.51.0
   - frozenlist==1.4.1
   - fsspec==2023.6.0
@@ -109,9 +109,11 @@ dependencies:
   - scikit-misc==0.3.1
   - scipy==1.13.0
   - seaborn==0.13.2
+  - ninja                  # flash-attn 1.0.4 CUDA-ext build (post-deploy); fast nvcc compile
   - session-info==1.0.0
   - setuptools==69.5.1
   - six==1.16.0
+  - wheel                  # build backend for the post-deploy flash-attn --no-build-isolation
   - statsmodels==0.14.2
   - stdlib-list==0.10.0
   - tensorstore==0.1.59
