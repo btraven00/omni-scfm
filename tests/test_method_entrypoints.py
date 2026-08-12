@@ -298,3 +298,60 @@ def test_scgpt_entrypoint():
         cwd=REPO, env=env, capture_output=True, text=True)
     assert proc.returncode == 0, f"run.sh failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}"
     assert (out / f"{name}.predictions.json.gz").exists()
+
+
+# --- scgpt: checkpoint resolution --------------------------------------------
+# The weights arrive as an omni-huggingface manifest (json pointing into the shared HF
+# cache) or as an unpacked dir. Resolving that needs no GPU, no env and no real checkpoint.
+
+def _fake_ckpt(tmp: Path) -> Path:
+    d = tmp / "scGPT_human"; d.mkdir()
+    for f in ("best_model.pt", "vocab.json", "args.json"):
+        (d / f).write_text("x")
+    return d
+
+
+def _run_scgpt(*args: str, env_extra: dict | None = None):
+    env = os.environ.copy()
+    env.pop("OMNI_SCGPT_MODEL", None)
+    env.update(env_extra or {})
+    return subprocess.run(["bash", "modules/methods/scgpt/run.sh", *args],
+                          cwd=REPO, env=env, capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("as_manifest", [False, True], ids=["dir", "manifest"])
+def test_scgpt_resolves_checkpoint(as_manifest: bool):
+    tmp = Path(tempfile.mkdtemp())
+    ckpt = _fake_ckpt(tmp)
+    handed = ckpt
+    if as_manifest:
+        handed = tmp / "scgpt_human_hf.json"
+        handed.write_text(json.dumps({"repo": "perturblab/scgpt-human", "snapshot": str(ckpt)}))
+    h5ad = tmp / "norman_tiny.h5ad"; h5ad.write_text("not really an h5ad")
+    split = tmp / "norman_tiny.set2conditions.json"; split.write_text("{}")
+    # An --output_dir under an out/ makes DATA_ROOT the empty tmp dir, so the run stops at
+    # the gene2go check — which sits AFTER the checkpoint gate, i.e. resolution succeeded.
+    proc = _run_scgpt("--output_dir", str(tmp / "out" / "x"), "--data.h5ad", str(h5ad),
+                      "--split.set2conditions", str(split),
+                      env_extra={"OMNI_SCGPT_MODEL": str(handed)})
+    assert proc.returncode == 4, proc.stdout + proc.stderr
+    assert "gene2go.pkl missing" in proc.stderr, proc.stderr
+
+
+def test_scgpt_rejects_incomplete_checkpoint():
+    tmp = Path(tempfile.mkdtemp())
+    (tmp / "empty").mkdir()
+    proc = _run_scgpt("--output_dir", str(tmp / "out"), "--data.h5ad", "x.h5ad",
+                      "--split.set2conditions", "s.json",
+                      env_extra={"OMNI_SCGPT_MODEL": str(tmp / "empty")})
+    assert proc.returncode == 3 and "incomplete" in proc.stderr, proc.stderr
+
+
+def test_scgpt_rejects_bogus_manifest():
+    """A json without "snapshot" must fail loudly, not silently fall through."""
+    tmp = Path(tempfile.mkdtemp())
+    bogus = tmp / "scgpt_human_hf.json"; bogus.write_text('{"repo": "x"}')
+    proc = _run_scgpt("--output_dir", str(tmp / "out"), "--data.h5ad", "x.h5ad",
+                      "--split.set2conditions", "s.json",
+                      env_extra={"OMNI_SCGPT_MODEL": str(bogus)})
+    assert proc.returncode == 3, proc.stdout + proc.stderr

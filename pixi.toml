@@ -263,6 +263,11 @@ scgpt-postinstall = """python -m pip install --no-deps scgpt==0.2.1 cell-gears==
 [feature.scgpt-gpu.system-requirements]
 cuda = "12"
 
+# hf: the omni-huggingface fetcher (modules/godata/scgpt_model_hf). Its own env so
+# huggingface_hub never enters a paper-pinned solve.
+[feature.hf.dependencies]
+huggingface_hub = "*"
+
 # --- environments (pixi solves each independently) --------------------------
 [environments]
 default = { features = ["base"] }
@@ -274,6 +279,7 @@ cpa-gpu = { features = ["cpa-gpu"] }
 scfoundation-gpu = { features = ["scfoundation-gpu"] }
 scgpt-gpu = { features = ["scgpt-gpu"] }
 omnipath = { features = ["omnipath"] }
+hf = { features = ["hf"] }
 dashboard = { features = ["base", "dashboard"] }
 
 # --- env export tasks: pixi -> envs/*.yml that benchmark.yaml references -----
@@ -297,7 +303,14 @@ fetch-go-essential = "bash modules/godata/go_essential/run.sh --output_dir data/
 # Side-load the scFoundation checkpoint (~GB) into data/scfoundation/ from a URL you
 # provide: `OMNI_SCFOUNDATION_URL='https://…|file:///…' pixi run fetch-scfoundation-model`.
 fetch-scfoundation-model = "bash modules/godata/scfoundation_model/run.sh --output_dir data/scfoundation"
-# Side-load the scGPT whole-human checkpoint DIR into data/scgpt/scGPT_human/ (hash-pinned).
-# Primary: copy a local mirror — `OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model`;
-# else gdown the public Drive folder (default OMNI_SCGPT_URL=gdrive://<id>). See [[scgpt-method]].
+# DEPRECATED, superseded by fetch-scgpt-model-hf below (same bytes, better transport).
+# Kept as the provenance record for the sha256 pins + a fallback if the HF repo vanishes.
+# `OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model`, else gdown the
+# public Drive folder (default OMNI_SCGPT_URL=gdrive://<id>). See [[scgpt-method]].
 fetch-scgpt-model = "bash modules/godata/scgpt_model/run.sh --output_dir data/scgpt"
+
+# The scGPT checkpoint via the omni-huggingface module -> data/scgpt/scgpt_human_hf.json,
+# a MANIFEST pointing into the shared HF cache (no 196MB copy). What modules/methods/scgpt
+# reads by default; it asserts the bytes match the Drive release. `pixi run -e hf …`.
+[feature.hf.tasks]
+fetch-scgpt-model-hf = "bash modules/godata/scgpt_model_hf/run.sh --output_dir data/scgpt"

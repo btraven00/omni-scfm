@@ -29,7 +29,9 @@
 #   --data.go PATH              the dataset's go.csv (accepted but UNUSED — scGPT builds no GO graph)
 #   --split.set2conditions PATH {"train","val","test"} from `split` (per seed)
 # Env knobs:
-#   OMNI_SCGPT_MODEL  path to the scGPT_human checkpoint DIR (default data/scgpt/scGPT_human)
+#   OMNI_SCGPT_MODEL  the checkpoint: either an omni-huggingface MANIFEST (json carrying
+#                     `snapshot`, the shared HF cache dir) or an unpacked DIR. Default:
+#                     data/scgpt/scgpt_human_hf.json, else data/scgpt/scGPT_human.
 #   OMNI_SCGPT_EPOCHS fine-tune epochs (default 15, the paper's value)
 #   OMNI_SCGPT_BATCH  batch size (default 64, the paper's value)
 #   OMNI_GEARS_CACHE  dir with a gene2go *.pkl (else data/godata side-load)
@@ -70,10 +72,24 @@ done
 # from --output_dir (an absolute path under the real out/). Fall back to $REPO locally.
 DATA_ROOT="${output_dir%%/out/*}"
 [[ -z $DATA_ROOT || $DATA_ROOT == "$output_dir" ]] && DATA_ROOT="$REPO"
-SCGPT_MODEL="${OMNI_SCGPT_MODEL:-$DATA_ROOT/data/scgpt/scGPT_human}"
+# The weights come from the HF Hub via the omni-huggingface module (`pixi run -e hf
+# fetch-scgpt-model-hf`), which writes a MANIFEST pointing into the shared HF cache — no
+# per-run copy of a 196MB checkpoint. The deprecated Drive release still works: same bytes,
+# and its sha256 pins are what that fetcher verifies against. Either shape accepted here.
+SCGPT_MODEL="${OMNI_SCGPT_MODEL:-}"
+if [[ -z $SCGPT_MODEL ]]; then
+  SCGPT_MODEL="$DATA_ROOT/data/scgpt/scgpt_human_hf.json"
+  [[ -f $SCGPT_MODEL ]] || SCGPT_MODEL="$DATA_ROOT/data/scgpt/scGPT_human"
+fi
+if [[ -f $SCGPT_MODEL ]]; then   # a manifest, not a dir
+  py=$(command -v python3 || command -v python)
+  SCGPT_MODEL=$("$py" -c 'import json,sys; print(json.load(open(sys.argv[1]))["snapshot"])' "$SCGPT_MODEL") || {
+    echo "scgpt/run.sh: '$SCGPT_MODEL' is not an omni-huggingface manifest (no \"snapshot\")" >&2; exit 3; }
+fi
 [[ -f "$SCGPT_MODEL/best_model.pt" && -f "$SCGPT_MODEL/vocab.json" && -f "$SCGPT_MODEL/args.json" ]] || {
-  echo "scgpt/run.sh: scGPT checkpoint dir incomplete at '$SCGPT_MODEL' (need best_model.pt + vocab.json + args.json)." >&2
-  echo "  Set OMNI_SCGPT_MODEL or run: OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model" >&2; exit 3; }
+  echo "scgpt/run.sh: scGPT checkpoint incomplete at '$SCGPT_MODEL' (need best_model.pt + vocab.json + args.json)." >&2
+  echo "  Run: pixi run -e hf fetch-scgpt-model-hf   (or set OMNI_SCGPT_MODEL to a manifest or a dir)." >&2
+  echo "  If the HF cache was cleared, the manifest points at nothing — re-run the fetcher." >&2; exit 3; }
 
 ds=$(basename "$data_h5ad"); ds="${ds%%.*}"
 if [[ -z $seed ]]; then

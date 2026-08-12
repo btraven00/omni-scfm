@@ -26,7 +26,7 @@ verbatim. Status legend: ✅ wired & validated · 🎯 next-up target · ⬜ pla
 | Additive | `additive` | baseline (double-pert) | `run_additive_model.py` | gears | ✅ | bit-exact vs published |
 | Linear pretrained (self-trained) | `lpm_selftrained` | baseline (linear) | `run_linear_pretrained_model.R` | r | ✅ | all-NA on double-perts (model limitation) |
 | GEARS | `gears` | deep (GNN) | `run_gears.py` | gears | 🎯 | env largely present; trains per split (GPU) |
-| scGPT | `scgpt` | foundation | `run_scgpt.py` | new | 🎯 | needs pretrained weights + GPU env |
+| scGPT | `scgpt` | foundation | `run_scgpt.py` | scgpt-gpu | 🎯 | weights via omni-huggingface (`perturblab/scgpt-human`); needs GPU |
 | Geneformer | `geneformer` | foundation | `run_geneformer.py` | new | 🎯 | needs weights + GPU env |
 | scFoundation | `scfoundation` | foundation | `run_scfoundation.py` | new | 🎯 | needs weights + GPU env |
 | CPA | `cpa` | deep (autoencoder) | `run_cpa.py` | cpa-gpu | ✅ | trains per split (GPU); scoped to `norman_from_scfoundation` |

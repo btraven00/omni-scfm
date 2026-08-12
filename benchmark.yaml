@@ -253,8 +253,10 @@ stages:
       # scoping as cpa/scfoundation). For that substrate run_scgpt.py reuses the SAME
       # vendored forked GEARS 0.0.2 as scfoundation (the module sed-patches its two
       # sys.path inserts). BIT-FAITHFUL env (scgpt-gpu = the paper's flashattn_env:
-      # flash-attn 1.0.4 + use_fast_transformer=True). Needs the side-loaded checkpoint
-      # DIR (OMNI_SCGPT_MODEL / fetch-scgpt-model). TODO: broaden to adamson/norman (the
+      # flash-attn 1.0.4 + use_fast_transformer=True). Needs the side-loaded checkpoint:
+      # `pixi run -e hf fetch-scgpt-model-hf` (Hugging Face, via the omni-huggingface
+      # module — writes a manifest into the shared HF cache; the Drive fetcher is
+      # deprecated, its bytes are identical). TODO: broaden to adamson/norman (the
       # script's else-branch + stock cell-gears 0.0.2 essential_all_data_pert_genes.pkl).
       - id: scgpt
         name: "scGPT (foundation model; run_scgpt.py, scgpt 0.2.1 + flash-attn 1.0.4)"

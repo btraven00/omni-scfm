@@ -92,7 +92,8 @@ first-class global-input (planned upstream).
 | `data/godata/gene2go_all.pkl` | `pixi run fetch-godata` | gears/cpa/additive/split/**scfoundation** | GEARS re-downloads (slow) or scfoundation hard-fails |
 | `data/godata/go_essential_all.csv` | `pixi run fetch-go-essential` | **scfoundation** | forked GEARS rebuilds the GO graph via a ~99M-pair single-thread loop (**HOURS**) |
 | `data/scfoundation/models.ckpt` | `pixi run fetch-scfoundation-model` (or scp) | **scfoundation** | hard-fail |
-| `data/scgpt/scGPT_human/` | `OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model` (or scp) | **scgpt** | hard-fail (needs best_model.pt + vocab.json + args.json) |
+| `data/scgpt/scgpt_human_hf.json` | `pixi run -e hf fetch-scgpt-model-hf` (Hugging Face, via omni-huggingface) | **scgpt** | hard-fail; a manifest into the shared HF cache, so re-run it if the cache is cleared |
+| `data/scgpt/scGPT_human/` | `OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model` — **deprecated**, same bytes | **scgpt** (fallback) | only needed if the HF repo is unreachable |
 
 Note the version trap behind go_essential: stock cell-gears 0.1.2 *downloads* it
 (Dataverse 6934319) and parallelizes the fallback; scFoundation's forked GEARS 0.0.2

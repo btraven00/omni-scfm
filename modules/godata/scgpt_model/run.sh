@@ -2,6 +2,13 @@
 # Side-load fetcher: scGPT whole-human pretrained checkpoint (the scGPT_human DIR =
 # best_model.pt ~196MB + vocab.json + args.json).
 #
+# DEPRECATED — use ../scgpt_model_hf (`pixi run -e hf fetch-scgpt-model-hf`), which pulls
+# the SAME bytes off the Hugging Face Hub: revision-pinned, no gdown, no Drive rate limits.
+# Verified 2026-08-12 with `cmp`: best_model.pt and vocab.json are byte-identical.
+# Kept because the sha256 pins below are what that fetcher verifies against — this file is
+# the provenance record — and as a fallback if the HF repo disappears. The scgpt method
+# still accepts the directory this writes.
+#
 # Unlike scFoundation's single .ckpt, scGPT ships a DIRECTORY (run_scgpt.py reads
 # best_model.pt / vocab.json / args.json from it). Provenance is the PUBLIC scGPT release
 # (bowang-lab/scGPT, a Google-Drive folder linked from the repo README) — far more
