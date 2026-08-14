@@ -2,7 +2,8 @@
 # Shared runner for the paper's R method scripts (mean, lpm, ...).
 #
 #   run_r_method.sh <vendored_script.R> --output_dir D --name N \
-#       --data.h5ad H --split.set2conditions S [--seed K] [--reference_h5ad R]
+#       --data.h5ad H --split.set2conditions S [--seed K] [--reference_h5ad R] \
+#       [--gene_embedding E] [--pert_embedding E]
 #
 # --reference_h5ad is for `transfer`, the one script that reads a SECOND dataset:
 # it is staged in the sandbox alongside the target and passed on as --reference_data.
@@ -22,7 +23,7 @@ REPO="$(pwd)"                                   # OB runs entrypoints from the r
 WRAPPER="$REPO/modules/methods/wrapper.R"
 VENDORED="$REPO/vendor/paper/benchmark/src/$script_name"
 
-output_dir="" ; data_h5ad="" ; split="" ; seed="" ; ref_h5ad=""
+output_dir="" ; data_h5ad="" ; split="" ; seed="" ; ref_h5ad="" ; fwd=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output_dir)                                  output_dir="$2"; shift 2 ;;
@@ -31,6 +32,9 @@ while [[ $# -gt 0 ]]; do
     --split.set2conditions|--split_set2conditions) split="$2";      shift 2 ;;
     --seed)                                        seed="$2";       shift 2 ;;
     --reference_h5ad)                              ref_h5ad="$2";   shift 2 ;;
+    # Forwarded verbatim to the vendored script (lpm's embedding knobs: a path to a
+    # tsv, or one of its keywords "training_data"/"random"/"identity"/"zero").
+    --gene_embedding|--pert_embedding)             fwd+=("$1" "$2"); shift 2 ;;
     *)                                             shift ;;
   esac
 done
@@ -72,7 +76,8 @@ export TMPDIR="$wd/tmp"; mkdir -p "$TMPDIR"
 export OMNI_VENDORED_SCRIPT="$VENDORED"
 ( cd "$wd" && Rscript "$WRAPPER" \
     --dataset_name "$ds" --test_train_config_id "$cfg" \
-    --working_dir "$wd" --result_id "$rid" --seed "$seed" "${ref_args[@]}" )
+    --working_dir "$wd" --result_id "$rid" --seed "$seed" \
+    "${ref_args[@]}" "${fwd[@]}" )
 
 mkdir -p "$output_dir"
 # Collapse any duplicate keys (e.g. mean's recycled names) and gzip; keep names plain.

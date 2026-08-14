@@ -70,8 +70,11 @@ stages:
         software_environment: "omni_data"
         # cpa + scfoundation + scgpt run only on the scfoundation substrate (first cut);
         # keep them off plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
-        # transfer is single-pert only (doubles can't match the reference's singles).
-        exclude: ["cpa", "scfoundation", "scgpt", "transfer"]
+        # transfer + the lpm alt-embedding arm are single-pert only (doubles can't match
+        # the reference's / the GO graph's single-gene perturbations), as in the paper.
+        exclude: ["cpa", "scfoundation", "scgpt", "transfer",
+                  "lpm_gearsPertEmb", "lpm_k562PertEmb", "lpm_rpe1PertEmb",
+                  "lpm_randomPertEmb", "lpm_randomGeneEmb"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e
@@ -85,8 +88,10 @@ stages:
         # scfoundation number (that is the fork/embeddings method). Requires OB's
         # transitive+symmetric `exclude` (PR #336 / bug/exclude-behavior). Pairs with
         # the `gears` method module in the methods stage.
-        # transfer is single-pert only (doubles can't match the reference's singles).
-        exclude: ["gears", "transfer"]
+        # transfer + the lpm alt-embedding arm are single-pert only (see the norman module).
+        exclude: ["gears", "transfer",
+                  "lpm_gearsPertEmb", "lpm_k562PertEmb", "lpm_rpe1PertEmb",
+                  "lpm_randomPertEmb", "lpm_randomGeneEmb"]
         # The raw figshare h5ad (gse133344_…_withtotalcount, 19264 genes); the
         # preprocess stage runs GEARS new_data_process on it. Fetched from the
         # figshare API host: figshare.com/ndownloader returns HTTP 202 (async) which
@@ -206,6 +211,47 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: transfer
+      # The paper's alt_embedding arm: the SAME run_linear_pretrained_model.R with one
+      # embedding swapped, which is how it asks whether a fancier G or P buys anything
+      # (run_perturbation_benchmark.R:31-38). All CPU. Single-pert only, like the paper's
+      # own job list — excluded from both norman modules. The *PertEmb variants need a
+      # side-loaded tsv: `pixi run -e r make-pert-emb-{gears,k562,rpe1}`.
+      - id: lpm_gearsPertEmb
+        name: "lpm with P from GEARS' GO graph (run_linear_pretrained_model.R)"
+        software_environment: "r"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: lpm_gearsPertEmb
+      - id: lpm_k562PertEmb
+        name: "lpm with P from Replogle K562 (run_linear_pretrained_model.R)"
+        software_environment: "r"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: lpm_k562PertEmb
+      - id: lpm_rpe1PertEmb
+        name: "lpm with P from Replogle RPE1 (run_linear_pretrained_model.R)"
+        software_environment: "r"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: lpm_rpe1PertEmb
+      # The two nulls the variants above are read against (no side-load needed).
+      - id: lpm_randomPertEmb
+        name: "lpm with random P (run_linear_pretrained_model.R)"
+        software_environment: "r"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: lpm_randomPertEmb
+      - id: lpm_randomGeneEmb
+        name: "lpm with random G (run_linear_pretrained_model.R)"
+        software_environment: "r"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: lpm_randomGeneEmb
       - id: additive
         name: "additive model (double-pert linear baseline, verbatim run_additive_model.py)"
         software_environment: "gears"

@@ -160,7 +160,16 @@ r-tidylog = "*"
 r-irlba = "*"        # linear pretrained model (PCA embeddings)
 r-skimr = "*"        # lpm summary printout
 bioconductor-lemur = "*"  # transfer method: lemur:::pca + lemur:::ridge_regression
+r-igraph = "*"       # extract_pert_embedding_from_gears.R (spectral embedding of the GO graph)
 "r-data.table" = "*" # quoted: the dot is part of the package name, not a TOML table
+
+[feature.r.tasks]
+# Build the lpm_*PertEmb perturbation embeddings once into data/embeddings/ (CPU, r env).
+# Side-loads, not OB stages: seed- and target-dataset-independent ([[ob-no-global-input]]).
+# gears needs `pixi run fetch-go-essential`; k562/rpe1 need `pixi run fetch-replogle`.
+make-pert-emb-gears = "bash modules/godata/pert_embedding/run.sh --output_dir data/embeddings --kind gears"
+make-pert-emb-k562 = "bash modules/godata/pert_embedding/run.sh --output_dir data/embeddings --kind pca --data.h5ad data/replogle/replogle_k562_essential.h5ad"
+make-pert-emb-rpe1 = "bash modules/godata/pert_embedding/run.sh --output_dir data/embeddings --kind pca --data.h5ad data/replogle/replogle_rpe1_essential.h5ad"
 
 # cpa-gpu: the CPA method (run_cpa.py) — a cpa-tools autoencoder that trains on GPU.
 # Unlike gears, the stack is the paper's tightly-coupled all-pip set (cpa-tools 0.8.8

@@ -30,6 +30,11 @@ verbatim. Status legend: ✅ wired & validated · 🎯 next-up target · ⬜ pla
 | Geneformer | `geneformer` | foundation | `run_geneformer.py` | new | 🎯 | needs weights + GPU env |
 | scFoundation | `scfoundation` | foundation | `run_scfoundation.py` | new | 🎯 | needs weights + GPU env |
 | CPA | `cpa` | deep (autoencoder) | `run_cpa.py` | cpa-gpu | ✅ | trains per split (GPU); scoped to `norman_from_scfoundation` |
+| LM with random P | `lpm_randomPertEmb` | baseline (null) | `run_linear_pretrained_model.R` | r | ✅ | CPU; `--pert_embedding random` |
+| LM with random G | `lpm_randomGeneEmb` | baseline (null) | `run_linear_pretrained_model.R` | r | ✅ | CPU; `--gene_embedding random` |
+| LM with P from GEARS | `lpm_gearsPertEmb` | baseline (alt embedding) | `run_linear_pretrained_model.R` | r | 🎯 | CPU; needs `pixi run -e r make-pert-emb-gears` (→ go_essential side-load) |
+| LM with P from K562 | `lpm_k562PertEmb` | baseline (alt embedding) | `run_linear_pretrained_model.R` | r | 🎯 | CPU; needs `make-pert-emb-k562` (→ Replogle side-load) |
+| LM with P from RPE1 | `lpm_rpe1PertEmb` | baseline (alt embedding) | `run_linear_pretrained_model.R` | r | 🎯 | CPU; needs `make-pert-emb-rpe1` (→ Replogle RPE1) |
 | scBERT | `scbert` | foundation | `run_scbert.py` | new | ⬜ | needs weights + GPU env |
 | UCE | `uce` | foundation | `run_uce.py` | new | ⬜ | needs weights + GPU env |
 | Transfer (linear) | `transfer` | baseline (cross-dataset) | `run_transfer_perturbation_prediction.R` | r | 🎯 | CPU; wired + validated on the fixture. Needs `pixi run fetch-replogle` (the reference dataset); adamson-only (matches by target gene, so doubles never match) |

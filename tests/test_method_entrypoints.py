@@ -23,6 +23,7 @@ from __future__ import annotations
 import gzip
 import json
 import os
+import random
 import subprocess
 import tempfile
 from pathlib import Path
@@ -122,6 +123,73 @@ def test_lpm_entrypoint():
         pytest.skip("r pixi env not available")
     out, proc = _run("lpm", rb, [])
     _assert_predictions(out, proc)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("method", ["lpm_randomPertEmb", "lpm_randomGeneEmb"])
+def test_lpm_random_embedding_entrypoints(method):
+    """The two nulls: same lpm script, one embedding replaced by rnorm. No side-load."""
+    rb = _env_bin("r")
+    if not (rb and (rb / "Rscript").exists() and (rb / "python3").exists()):
+        pytest.skip("r pixi env not available")
+    out, proc = _run(method, rb, [])
+    _assert_predictions(out, proc)
+
+
+@pytest.mark.integration
+def test_lpm_pert_embedding_entrypoint(tmp_path):
+    """The precomputed-embedding path (lpm_{gears,k562,rpe1}PertEmb all share it): a tsv
+    whose header is the perturbation names. Synthesised here — the real ones need the
+    Dataverse side-loads — so this guards the wiring, not the embedding's content."""
+    rb = _env_bin("r")
+    if not (rb and (rb / "Rscript").exists() and (rb / "python3").exists()):
+        pytest.skip("r pixi env not available")
+    conds = sorted({c.split("+ctrl")[0] for c in
+                    json.loads((FIX / f"{NAME}.set2conditions.json").read_text())["train"]})
+    rng = random.Random(0)
+    tsv = tmp_path / "emb.tsv"
+    tsv.write_text("\t".join(conds) + "\n" +
+                   "\n".join("\t".join(f"{rng.gauss(0, 1):.6f}" for _ in conds)
+                             for _ in range(10)) + "\n")
+    out, proc = _run("lpm_k562PertEmb", rb, [], extra_env={"OMNI_PERT_EMB": str(tsv)})
+    _assert_predictions(out, proc)
+
+
+@pytest.mark.integration
+def test_pert_embedding_builder_pca(tmp_path):
+    """modules/godata/pert_embedding --kind pca on the fixture: what feeds
+    lpm_{k562,rpe1}PertEmb, built from a dataset instead of Replogle. (--kind gears isn't
+    covered: it needs the 338MB go_essential_all.csv side-load.)"""
+    rb = _env_bin("r")
+    if not (rb and (rb / "Rscript").exists()):
+        pytest.skip("r pixi env not available")
+    env = os.environ.copy()
+    env["PATH"] = f"{rb}:{env['PATH']}"
+    proc = subprocess.run(
+        ["bash", "modules/godata/pert_embedding/run.sh", "--output_dir", str(tmp_path),
+         "--kind", "pca", "--data.h5ad", str(FIX / f"{NAME}.h5ad"), "--pca_dim", "4"],
+        cwd=REPO, env=env, capture_output=True, text=True)
+    assert proc.returncode == 0, f"{proc.stdout[-800:]}\n{proc.stderr[-800:]}"
+    rows = (tmp_path / f"{NAME}.tsv").read_text().splitlines()
+    assert len(rows) == 5                                  # header + pca_dim
+    header = rows[0].split("\t")
+    # The header must be PERTURBATION names (lpm matches them against clean_condition),
+    # not gene names — that swap would silently produce an all-NA prediction table.
+    sets = json.loads((FIX / f"{NAME}.set2conditions.json").read_text())
+    want = {c.replace("+ctrl", "") for v in sets.values() for c in v} | {"ctrl"}
+    assert set(header) == want
+
+
+@pytest.mark.integration
+def test_lpm_pert_embedding_missing_side_load():
+    """Missing side-load must fail loudly (exit 3), not silently predict nothing."""
+    proc = subprocess.run(
+        ["bash", "modules/methods/lpm_k562PertEmb/run.sh", "--output_dir", "/tmp/unused",
+         "--data.h5ad", str(FIX / f"{NAME}.h5ad")],
+        cwd=REPO, env={**os.environ, "OMNI_PERT_EMB": "/nonexistent.tsv"},
+        capture_output=True, text=True)
+    assert proc.returncode == 3, proc.stderr
+    assert "make-pert-emb" in proc.stderr
 
 
 @pytest.mark.integration
