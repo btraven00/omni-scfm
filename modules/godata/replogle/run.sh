@@ -23,12 +23,11 @@ set -euo pipefail
 
 NAME="${OMNI_REPLOGLE_NAME:-replogle_k562_essential}"
 URL="${OMNI_REPLOGLE_URL:-https://dataverse.harvard.edu/api/access/datafile/7458695}"
-# ponytail: md5 unpinned — Harvard Dataverse is WAF-challenging (HTTP 202, empty body)
-# from this network, so the first real fetch has to happen elsewhere. The script PRINTS
-# the md5 it got; paste it here (or pass OMNI_REPLOGLE_MD5) to turn the check on. Then
-# mirror the archive to btraven/omni-scfm-data and point URL at the HF resolve URL — the
-# md5 check is what makes the mirror trustworthy (AGENTS.md, "Mirroring").
-MD5="${OMNI_REPLOGLE_MD5:-}"
+# Pinned 2026-08-14 from a browser download (Dataverse WAF-challenges scripted clients —
+# HTTP 202 + a JS proof-of-work; see AGENTS.md "Mirroring"). Mirror the archive to
+# btraven/omni-scfm-data and point URL at the HF resolve URL: this md5 is what makes the
+# mirror trustworthy, so keep it pinned.
+MD5="${OMNI_REPLOGLE_MD5:-84eed779531de88f83d3eb16a773a261}"
 
 output_dir=""
 while [[ $# -gt 0 ]]; do
