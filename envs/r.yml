@@ -19,5 +19,6 @@ dependencies:
 - r-tidylog *
 - r-irlba *
 - r-skimr *
+- bioconductor-lemur *
 - r-data.table *
 - python >=3.10,<3.13

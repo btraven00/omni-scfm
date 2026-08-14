@@ -2,7 +2,10 @@
 # Shared runner for the paper's R method scripts (mean, lpm, ...).
 #
 #   run_r_method.sh <vendored_script.R> --output_dir D --name N \
-#       --data.h5ad H --split.set2conditions S [--seed K]
+#       --data.h5ad H --split.set2conditions S [--seed K] [--reference_h5ad R]
+#
+# --reference_h5ad is for `transfer`, the one script that reads a SECOND dataset:
+# it is staged in the sandbox alongside the target and passed on as --reference_data.
 #
 # Runs the vendored script VERBATIM via wrapper.R (which swaps the reader to
 # picklerick), translating OmniBenchmark's CLI into the GEARS working-dir layout
@@ -19,7 +22,7 @@ REPO="$(pwd)"                                   # OB runs entrypoints from the r
 WRAPPER="$REPO/modules/methods/wrapper.R"
 VENDORED="$REPO/vendor/paper/benchmark/src/$script_name"
 
-output_dir="" ; data_h5ad="" ; split="" ; seed=""
+output_dir="" ; data_h5ad="" ; split="" ; seed="" ; ref_h5ad=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output_dir)                                  output_dir="$2"; shift 2 ;;
@@ -27,6 +30,7 @@ while [[ $# -gt 0 ]]; do
     --data.h5ad|--data_h5ad)                       data_h5ad="$2";  shift 2 ;;
     --split.set2conditions|--split_set2conditions) split="$2";      shift 2 ;;
     --seed)                                        seed="$2";       shift 2 ;;
+    --reference_h5ad)                              ref_h5ad="$2";   shift 2 ;;
     *)                                             shift ;;
   esac
 done
@@ -51,10 +55,24 @@ ln -sf "$(realpath "$data_h5ad")" "$wd/data/gears_pert_data/$ds/perturb_processe
 cfg="config"; rid="result"
 cp "$split" "$wd/results/$cfg"
 
+# transfer's reference dataset: same layout, named after the file (the R script takes
+# a --reference_data NAME and looks it up under data/gears_pert_data/).
+ref_args=()
+if [[ -n $ref_h5ad ]]; then
+  ref=$(basename "$ref_h5ad"); ref="${ref%%.*}"
+  mkdir -p "$wd/data/gears_pert_data/$ref"
+  ln -sf "$(realpath "$ref_h5ad")" "$wd/data/gears_pert_data/$ref/perturb_processed.h5ad"
+  ref_args=(--reference_data "$ref")
+fi
+
+# Keep R's tempdir inside the sandbox: the scripts publish results with
+# file.rename(tempdir-ish, out_dir), which fails silently across filesystems.
+export TMPDIR="$wd/tmp"; mkdir -p "$TMPDIR"
+
 export OMNI_VENDORED_SCRIPT="$VENDORED"
 ( cd "$wd" && Rscript "$WRAPPER" \
     --dataset_name "$ds" --test_train_config_id "$cfg" \
-    --working_dir "$wd" --result_id "$rid" --seed "$seed" )
+    --working_dir "$wd" --result_id "$rid" --seed "$seed" "${ref_args[@]}" )
 
 mkdir -p "$output_dir"
 # Collapse any duplicate keys (e.g. mean's recycled names) and gzip; keep names plain.

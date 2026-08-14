@@ -70,7 +70,8 @@ stages:
         software_environment: "omni_data"
         # cpa + scfoundation + scgpt run only on the scfoundation substrate (first cut);
         # keep them off plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
-        exclude: ["cpa", "scfoundation", "scgpt"]
+        # transfer is single-pert only (doubles can't match the reference's singles).
+        exclude: ["cpa", "scfoundation", "scgpt", "transfer"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e
@@ -84,7 +85,8 @@ stages:
         # scfoundation number (that is the fork/embeddings method). Requires OB's
         # transitive+symmetric `exclude` (PR #336 / bug/exclude-behavior). Pairs with
         # the `gears` method module in the methods stage.
-        exclude: ["gears"]
+        # transfer is single-pert only (doubles can't match the reference's singles).
+        exclude: ["gears", "transfer"]
         # The raw figshare h5ad (gse133344_…_withtotalcount, 19264 genes); the
         # preprocess stage runs GEARS new_data_process on it. Fetched from the
         # figshare API host: figshare.com/ndownloader returns HTTP 202 (async) which
@@ -191,6 +193,19 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: lpm
+      # Transfer (cross-dataset linear). CPU. Predicts from the SAME perturbations
+      # measured in a reference dataset (Replogle K562, side-loaded via
+      # `pixi run fetch-replogle` — a second dataset can't be an OB input, see
+      # modules/godata/gene2go). Matching is by target-gene name, so doubles never
+      # match Replogle's singles: scoped to adamson via `exclude: ["transfer"]` on
+      # the two norman dataset modules (same inverse-scoping as cpa).
+      - id: transfer
+        name: "transfer prediction (verbatim run_transfer_perturbation_prediction.R)"
+        software_environment: "r"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: transfer
       - id: additive
         name: "additive model (double-pert linear baseline, verbatim run_additive_model.py)"
         software_environment: "gears"

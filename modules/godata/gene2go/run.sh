@@ -21,8 +21,11 @@
 #   <output_dir>/gene2go_all.pkl   the GO vocabulary (md5 77c9af0c61c30ea4d7a85680f4d122dc)
 set -euo pipefail
 
-URL="https://dataverse.harvard.edu/api/access/datafile/6153417"
-MD5="77c9af0c61c30ea4d7a85680f4d122dc"
+# The md5 is the identity, the host is a parameter: point OMNI_GENE2GO_URL at any mirror
+# (or file:///…) and the check below still proves you got the canonical bytes. Dataverse
+# WAF-challenges some networks (HTTP 202, empty body) — see [[transfer-method]].
+URL="${OMNI_GENE2GO_URL:-https://dataverse.harvard.edu/api/access/datafile/6153417}"
+MD5="${OMNI_GENE2GO_MD5:-77c9af0c61c30ea4d7a85680f4d122dc}"
 
 output_dir=""
 while [[ $# -gt 0 ]]; do

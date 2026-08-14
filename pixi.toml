@@ -159,6 +159,7 @@ r-rjson = "*"
 r-tidylog = "*"
 r-irlba = "*"        # linear pretrained model (PCA embeddings)
 r-skimr = "*"        # lpm summary printout
+bioconductor-lemur = "*"  # transfer method: lemur:::pca + lemur:::ridge_regression
 "r-data.table" = "*" # quoted: the dot is part of the package name, not a TOML table
 
 # cpa-gpu: the CPA method (run_cpa.py) — a cpa-tools autoencoder that trains on GPU.
@@ -300,6 +301,10 @@ fetch-godata = "bash modules/godata/gene2go/run.sh --output_dir data/godata"
 # data/godata/. scFoundation needs it — without it the forked GEARS rebuilds it via a
 # ~99M-pair single-threaded loop (HOURS). See modules/godata/go_essential.
 fetch-go-essential = "bash modules/godata/go_essential/run.sh --output_dir data/godata"
+# Side-load the Replogle K562 reference dataset (~1GB, Harvard Dataverse) into
+# data/replogle/ — the second dataset the `transfer` method regresses against.
+# See modules/godata/replogle/run.sh.
+fetch-replogle = "bash modules/godata/replogle/run.sh --output_dir data/replogle"
 # Side-load the scFoundation checkpoint (~GB) into data/scfoundation/ from a URL you
 # provide: `OMNI_SCFOUNDATION_URL='https://…|file:///…' pixi run fetch-scfoundation-model`.
 fetch-scfoundation-model = "bash modules/godata/scfoundation_model/run.sh --output_dir data/scfoundation"

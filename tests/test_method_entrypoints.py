@@ -62,6 +62,13 @@ def _has_cuda(env_bin: Path) -> bool:
     return r.returncode == 0
 
 
+def _has_r_pkg(env_bin: Path, pkg: str) -> bool:
+    r = subprocess.run([str(env_bin / "Rscript"), "-e",
+                        f'quit(status = !requireNamespace("{pkg}", quietly = TRUE))'],
+                       capture_output=True)
+    return r.returncode == 0
+
+
 def _gene2go_dir() -> Path | None:
     for c in (REPO / "scratch" / "scf" / "pertdata",
               REPO / "scratch" / "gears_run" / "data" / "gears_pert_data"):
@@ -115,6 +122,30 @@ def test_lpm_entrypoint():
         pytest.skip("r pixi env not available")
     out, proc = _run("lpm", rb, [])
     _assert_predictions(out, proc)
+
+
+@pytest.mark.integration
+def test_transfer_entrypoint():
+    """Self-transfer: the fixture is its own reference dataset, so every perturbation
+    matches and no prediction column is NA. Exercises the whole cross-dataset path
+    (two h5ads staged, --reference_data threaded through) without the ~1GB Replogle
+    side-load — with a real reference the unmatched columns are NA by design."""
+    rb = _env_bin("r")
+    if not (rb and (rb / "Rscript").exists() and (rb / "python3").exists()):
+        pytest.skip("r pixi env not available")
+    if not _has_r_pkg(rb, "lemur"):
+        pytest.skip("r env predates the lemur dep (rebuild it: pixi install -e r)")
+    out, proc = _run("transfer", rb, [], extra_env={"OMNI_REPLOGLE_H5AD": str(FIX / f"{NAME}.h5ad")})
+    _assert_predictions(out, proc)
+    with gzip.open(out / f"{NAME}.predictions.json.gz", "rt") as fh:
+        preds = json.load(fh)
+    # rjson writes R's NA as the string "NA" (metrics.py coerces it to NaN); with the
+    # fixture as its own reference nothing should be unmatched.
+    assert all(isinstance(v[0], float) for v in preds.values()), "unexpected NA in self-transfer"
+    # The vendored script emits var_names (Ensembl); run.sh relabels to the symbols the
+    # collector joins on. Without this the metrics silently come out NaN.
+    assert json.loads((out / f"{NAME}.gene_names.json").read_text()) == \
+        json.loads((FIX / f"{NAME}.gene_names.json").read_text())
 
 
 @pytest.mark.integration

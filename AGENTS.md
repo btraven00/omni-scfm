@@ -91,9 +91,36 @@ first-class global-input (planned upstream).
 |---|---|---|---|
 | `data/godata/gene2go_all.pkl` | `pixi run fetch-godata` | gears/cpa/additive/split/**scfoundation** | GEARS re-downloads (slow) or scfoundation hard-fails |
 | `data/godata/go_essential_all.csv` | `pixi run fetch-go-essential` | **scfoundation** | forked GEARS rebuilds the GO graph via a ~99M-pair single-thread loop (**HOURS**) |
+| `data/replogle/replogle_k562_essential.h5ad` | `pixi run fetch-replogle` | **transfer** | hard-fail (exit 3); it's the reference dataset the method regresses against |
 | `data/scfoundation/models.ckpt` | `pixi run fetch-scfoundation-model` (or scp) | **scfoundation** | hard-fail |
 | `data/scgpt/scgpt_human_hf.json` | `pixi run -e hf fetch-scgpt-model-hf` (Hugging Face, via omni-huggingface) | **scgpt** | hard-fail; a manifest into the shared HF cache, so re-run it if the cache is cleared |
 | `data/scgpt/scGPT_human/` | `OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model` — **deprecated**, same bytes | **scgpt** (fallback) | only needed if the HF repo is unreachable |
+
+**Mirroring (the hash is the identity, the host is a parameter).** Every fetcher above
+takes `OMNI_<NAME>_URL` / `OMNI_<NAME>_MD5` overrides and verifies the hash *after* the
+download, so any mirror that serves the canonical bytes passes the same check. Harvard
+Dataverse WAF-challenges some networks (HTTP 202, `x-amzn-waf-action: challenge`, empty
+body — it hit every datafile URL from the dev box on 2026-08-13), so the three Dataverse
+artifacts are mirrored to a Hugging Face **dataset** repo, `btraven/omni-scfm-data`.
+Seed it once from a network Dataverse answers:
+
+```bash
+hf repos create btraven/omni-scfm-data --repo-type dataset         # once
+hf upload btraven/omni-scfm-data <file> --repo-type dataset        # per artifact
+# (`pixi run -e hf …`; the hf env has the CLI + an authenticated token)
+```
+
+A public HF repo serves plain HTTPS, so **no new code or module is needed** — the
+existing urllib fetchers take the resolve URL as-is, hash pins unchanged:
+
+```bash
+OMNI_GENE2GO_URL=https://huggingface.co/datasets/btraven/omni-scfm-data/resolve/main/gene2go_all.pkl
+```
+
+Flip the defaults in the three `run.sh` scripts once the repo is populated, keeping the
+Dataverse URL in a comment as the provenance record (the pattern
+`modules/godata/scgpt_model_hf` already follows for the scGPT weights, where the sha256
+of the canonical Drive release is what makes the mirror trustworthy).
 
 Note the version trap behind go_essential: stock cell-gears 0.1.2 *downloads* it
 (Dataverse 6934319) and parallelizes the fallback; scFoundation's forked GEARS 0.0.2

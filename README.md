@@ -32,7 +32,7 @@ verbatim. Status legend: ✅ wired & validated · 🎯 next-up target · ⬜ pla
 | CPA | `cpa` | deep (autoencoder) | `run_cpa.py` | cpa-gpu | ✅ | trains per split (GPU); scoped to `norman_from_scfoundation` |
 | scBERT | `scbert` | foundation | `run_scbert.py` | new | ⬜ | needs weights + GPU env |
 | UCE | `uce` | foundation | `run_uce.py` | new | ⬜ | needs weights + GPU env |
-| Transfer (linear) | `transfer` | baseline (cross-dataset) | `run_transfer_perturbation_prediction.R` | r | ⬜ | needs a `--reference_data` dataset (e.g. Replogle) staged as a second input |
+| Transfer (linear) | `transfer` | baseline (cross-dataset) | `run_transfer_perturbation_prediction.R` | r | 🎯 | CPU; wired + validated on the fixture. Needs `pixi run fetch-replogle` (the reference dataset); adamson-only (matches by target gene, so doubles never match) |
 
 Datasets currently wired: `adamson`, `norman`, `norman_from_scfoundation`.
 
@@ -59,7 +59,8 @@ This project is licensed under the MIT License.
    and the GEARS/CPA/additive method modules read it from there, avoiding a ~9 MB
    re-download on every split/method/seed. It's *side-loaded* rather than an OB stage
    because OB 0.5.1 can't wire one global file into per-dataset lineages — see
-   `AGENTS.md`.
+   `AGENTS.md`. The `transfer` method needs a second side-load, its reference
+   dataset: `pixi run fetch-replogle` (~1 GB, Harvard Dataverse).
 
 3. Run the benchmark:
    ```bash

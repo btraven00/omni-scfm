@@ -12,6 +12,7 @@ entrypoints:
   ground_truth: modules/methods/ground_truth/run.py
   mean: modules/methods/mean/run.sh
   lpm: modules/methods/lpm/run.sh
+  transfer: modules/methods/transfer/run.sh
   additive: modules/methods/additive/run.sh
   gears: modules/methods/gears/run.sh
   cpa: modules/methods/cpa/run.sh
