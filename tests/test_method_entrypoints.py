@@ -71,7 +71,8 @@ def _has_r_pkg(env_bin: Path, pkg: str) -> bool:
 
 
 def _gene2go_dir() -> Path | None:
-    for c in (REPO / "scratch" / "scf" / "pertdata",
+    for c in (REPO / "data" / "godata",  # the side-load (pixi run fetch-godata)
+              REPO / "scratch" / "scf" / "pertdata",
               REPO / "scratch" / "gears_run" / "data" / "gears_pert_data"):
         if (c / "gene2go_all.pkl").exists():
             return c
