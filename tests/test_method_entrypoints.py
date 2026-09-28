@@ -584,6 +584,8 @@ def test_uce_entrypoint():
     cache = _gene2go_dir()
     if cache is None:
         pytest.skip("no GEARS gene2go cache (scratch/scf/pertdata)")
+    # batch 25 fits a 24GB card (the paper's 100 needs ~80GB); embeddings are batch-independent
     out, proc = _run("uce", ub, ["--model_type", "4layers"],
-                     {"OMNI_GEARS_CACHE": str(cache), "OMNI_UCE_MODEL_FILES": str(mf)})
+                     {"OMNI_GEARS_CACHE": str(cache), "OMNI_UCE_MODEL_FILES": str(mf),
+                      "OMNI_UCE_BATCH": os.environ.get("OMNI_UCE_BATCH", "25")})
     _assert_predictions(out, proc)
