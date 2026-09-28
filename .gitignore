@@ -9,6 +9,7 @@ scratch/
 data/godata/
 # Side-loaded scFoundation checkpoint (fetch-scfoundation-model, ~GB)
 data/scfoundation/
+data/replogle/
 # Side-loaded scGPT whole-human checkpoint (fetch-scgpt-model, ~196MB)
 data/scgpt/
 data/geneformer/
