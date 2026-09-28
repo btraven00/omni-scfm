@@ -41,3 +41,16 @@ which license.
   identical to the basilisk path to ~1e-6.
 - **Where:** `r-picklerick` from the `https://prefix.dev/edge` channel (`envs/r.yml`).
 - **Source:** https://github.com/btraven00/scx — GPL-3.0-only.
+
+## UCE (Universal Cell Embeddings) — vendored eval code
+
+- **What:** `eval_single_anndata.py` and the modules it imports (`evaluate.py`,
+  `eval_data.py`, `model.py`, `utils.py`, `data_proc/{data_utils,gene_embeddings}.py`)
+  plus `model_files/new_species_protein_embeddings.csv`. Unmodified.
+- **Where (here):** `vendor/uce/` (see `vendor/uce/NOTICE`).
+- **Why:** `run_uce.py` shells out to a UCE checkout per condition; UCE is not a package.
+- **Source:** https://github.com/snap-stanford/UCE @ `8227a65cdd021b9186ef86671d2aef5c895c8e4b`
+- **License:** MIT — Copyright (c) 2023 Yanay Rosen, Yusuf Roohani, Jure Leskovec.
+  Model weights are not vendored (figshare 24320806, fetched by `fetch-uce-model`).
+- **Citing:** Rosen, Y. et al. *Universal Cell Embeddings: A Foundation Model for Cell
+  Biology.* bioRxiv (2023).

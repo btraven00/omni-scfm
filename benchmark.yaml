@@ -51,6 +51,14 @@ software_environments:
     name: Geneformer env for Blackwell GPUs (paper pins, torch bumped)
     description: as geneformer-gpu but torch 2.7.1+cu128 (sm_120); torch 2.3.0 has no Blackwell kernels
     conda: envs/geneformer-blackwell.yml
+  uce-gpu:
+    name: UCE GPU env (paper-pinned uce_env)
+    description: accelerate 0.24.0 + torch 2.1.1 + cell-gears 0.1.2; UCE code vendored, weights side-loaded
+    conda: envs/uce-gpu.yml
+  uce-blackwell:
+    name: UCE env for Blackwell GPUs (paper pins, torch bumped)
+    description: as uce-gpu but torch 2.7.1+cu128 (sm_120); torch 2.1.1 has no Blackwell kernels
+    conda: envs/uce-blackwell.yml
 
 stages:
   # 1. Download raw data (reproducible, via the omni-data remote module).
@@ -80,7 +88,7 @@ stages:
         # keep them off plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
         # transfer + the lpm alt-embedding arm are single-pert only (doubles can't match
         # the reference's / the GO graph's single-gene perturbations), as in the paper.
-        exclude: ["cpa", "scfoundation", "scgpt", "geneformer", "transfer",
+        exclude: ["cpa", "scfoundation", "scgpt", "geneformer", "uce", "uce33", "transfer",
                   "lpm_gearsPertEmb", "lpm_k562PertEmb", "lpm_rpe1PertEmb",
                   "lpm_randomPertEmb", "lpm_randomGeneEmb"]
         repository:
@@ -356,3 +364,26 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: geneformer
+      # UCE (Universal Cell Embeddings; verbatim run_uce.py, vendored UCE @8227a65).
+      # Inference only. Two paper methods, one entrypoint: `uce` = 4-layer model, `uce33`
+      # = 33-layer. Paper scope: adamson + norman_from_scfoundation (`exclude` on plain
+      # norman). Needs the side-loaded model files: `pixi run -e omnidata fetch-uce-model`.
+      # uce-blackwell for the RTX PRO 6000 box; "uce-gpu" is the paper-faithful torch 2.1.1.
+      - id: uce
+        name: "UCE 4-layer (foundation model; run_uce.py)"
+        software_environment: "uce-blackwell"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: uce
+        parameters:
+          - model_type: ["4layers"]
+      - id: uce33
+        name: "UCE 33-layer (foundation model; run_uce.py)"
+        software_environment: "uce-blackwell"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: uce
+        parameters:
+          - model_type: ["33layers"]

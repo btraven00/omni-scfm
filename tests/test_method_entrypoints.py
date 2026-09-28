@@ -510,3 +510,79 @@ def test_geneformer_entrypoint():
         pytest.skip("no GEARS gene2go cache (scratch/scf/pertdata)")
     out, proc = _run("geneformer", gb, [], {"OMNI_GEARS_CACHE": str(cache)})
     _assert_predictions(out, proc)
+
+
+# --- uce -------------------------------------------------------------------------
+
+def _uce_env_bin() -> Path | None:
+    if (ov := os.environ.get("OMNI_UCE_ENV_BIN")) and (Path(ov) / "python").exists():
+        return Path(ov)
+    return _env_bin("uce-blackwell") or _env_bin("uce-gpu")
+
+
+def _uce_model_files(ckpt: str = "4layer_model.torch") -> Path | None:
+    p = Path(os.environ.get("OMNI_UCE_MODEL_FILES", REPO / "data" / "uce" / "model_files"))
+    return p if (p / ckpt).exists() and (p / "protein_embeddings").is_dir() else None
+
+
+def _run_uce(*args: str, env_extra: dict | None = None):
+    env = os.environ.copy()
+    env.update(env_extra or {})
+    return subprocess.run(["bash", "modules/methods/uce/run.sh", *args],
+                          cwd=REPO, env=env, capture_output=True, text=True)
+
+
+def test_uce_patch_targets_exist():
+    """run.sh sed-patches three cluster paths in the vendored run_uce.py; if a submodule
+    bump moves them the patch silently no-ops, so pin that they are there."""
+    src = (REPO / "vendor" / "paper" / "benchmark" / "src" / "run_uce.py").read_text()
+    assert "cd /home/ahlmanne/prog/UCE" in src
+    assert "/home/ahlmanne/data/universal_cell_embedding/4layer_model.torch" in src
+    assert "/home/ahlmanne/data/universal_cell_embedding/33l_8ep_1024t_1280.torch" in src
+
+
+def test_uce_rejects_bad_model_type():
+    proc = _run_uce("--output_dir", "/tmp/x", "--data.h5ad", "x.h5ad",
+                    "--split.set2conditions", "s.json", "--model_type", "12layers")
+    assert proc.returncode == 2 and "4layers or 33layers" in proc.stderr, proc.stderr
+
+
+def test_uce_reports_missing_model_files():
+    tmp = Path(tempfile.mkdtemp())
+    proc = _run_uce("--output_dir", str(tmp / "out" / "x"), "--data.h5ad", "x.h5ad",
+                    "--split.set2conditions", "s.json", "--model_type", "33layers",
+                    env_extra={"OMNI_UCE_MODEL_FILES": str(tmp)})
+    assert proc.returncode == 3 and "fetch-uce-model" in proc.stderr, proc.stderr
+
+
+@pytest.mark.integration
+def test_uce_env_imports():
+    """Env-good guard (no GPU/weights): the vendored UCE modules import in the env."""
+    ub = _uce_env_bin()
+    if ub is None:
+        pytest.skip("uce env not available (set OMNI_UCE_ENV_BIN or build envs/uce-*.yml)")
+    env = os.environ.copy()
+    env["PYTHONNOUSERSITE"] = "1"
+    check = ("import evaluate, model, eval_data, utils, accelerate, scanpy, gears.version;"
+             "assert gears.version.__version__=='0.1.2'")
+    r = subprocess.run([str(ub / "python"), "-c", check], cwd=REPO / "vendor" / "uce",
+                       env=env, capture_output=True, text=True)
+    assert r.returncode == 0, f"uce env import failed:\n{r.stdout}\n{r.stderr}"
+
+
+@pytest.mark.integration
+def test_uce_entrypoint():
+    ub = _uce_env_bin()
+    if ub is None:
+        pytest.skip("uce env not available")
+    if not _has_cuda(ub):
+        pytest.skip("no CUDA device (run_uce.py calls torch.cuda.get_device_name())")
+    mf = _uce_model_files()
+    if mf is None:
+        pytest.skip("no UCE model files (pixi run -e omnidata fetch-uce-model)")
+    cache = _gene2go_dir()
+    if cache is None:
+        pytest.skip("no GEARS gene2go cache (scratch/scf/pertdata)")
+    out, proc = _run("uce", ub, ["--model_type", "4layers"],
+                     {"OMNI_GEARS_CACHE": str(cache), "OMNI_UCE_MODEL_FILES": str(mf)})
+    _assert_predictions(out, proc)

@@ -1,0 +1,6 @@
+Vendored from https://github.com/snap-stanford/UCE @ 8227a65cdd021b9186ef86671d2aef5c895c8e4b
+(2024-11-19, the last code commit before the paper added UCE on 2025-01-13).
+Unmodified. Only the files eval_single_anndata.py needs are kept (notebooks, examples and
+the data-processing scripts it doesn't import are omitted). MIT License, see LICENSE.
+Model weights / token files are NOT vendored: modules/godata/uce_model fetches them from
+figshare article 24320806 (md5-pinned).

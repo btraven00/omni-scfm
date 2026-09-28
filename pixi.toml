@@ -24,6 +24,11 @@ openpyxl = "*"  # read the paper's source_data/*.xlsx for the reproduction check
 hapiq = "*"
 bash = "*"
 
+[feature.omnidata.tasks]
+# UCE model files (figshare 24320806, md5-pinned, via hapiq's cache) -> data/uce/model_files.
+# ~15GB for both models; OMNI_UCE_MODELS=4layers to fetch only one.
+fetch-uce-model = "bash modules/godata/uce_model/run.sh --output_dir data/uce"
+
 # dashboard: Streamlit results explorer (stlite-compatible: pandas + altair).
 [feature.dashboard.dependencies]
 streamlit = "*"
@@ -324,6 +329,42 @@ torch = "==2.3.0"
 [feature.geneformer-blackwell.pypi-dependencies]
 torch = { version = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" }
 
+# uce: the UCE method (run_uce.py: embed control cells with the target genes' expression
+# swapped in, ridge from the mean embedding). Mirrors the paper's uce_env (accelerate
+# 0.24.0, scanpy 1.10.2, cell-gears 0.1.2); frozen pin sets in envs/uce-gpu.yml (torch
+# 2.1.1, the paper) and envs/uce-blackwell.yml (torch 2.7.1+cu128 — the one deviation,
+# needed on sm_120). UCE code is vendored (vendor/uce @8227a65), weights side-loaded
+# (fetch-uce-model).
+[feature.uce.dependencies]
+python = "3.10.*"
+pip = "*"
+
+[feature.uce.pypi-dependencies]
+accelerate = "==0.24.0"
+anndata = "==0.10.7"
+cell-gears = "==0.1.2"
+torch-geometric = "==2.5.3"
+numpy = "==1.26.4"
+scipy = "==1.14.1"
+pandas = "==2.2.2"
+scanpy = "==1.10.2"
+scikit-learn = "==1.5.0"
+h5py = "==3.11.0"
+numba = "==0.59.1"
+requests = "==2.25.1"
+urllib3 = "==1.26.6"
+tqdm = "==4.66.5"
+session-info = "==1.0.0"
+
+[feature.uce.system-requirements]
+cuda = "12"
+
+[feature.uce-gpu.pypi-dependencies]
+torch = "==2.1.1"
+
+[feature.uce-blackwell.pypi-dependencies]
+torch = { version = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" }
+
 # hf: the omni-huggingface fetcher (modules/godata/scgpt_model_hf). Its own env so
 # huggingface_hub never enters a paper-pinned solve.
 [feature.hf.dependencies]
@@ -341,6 +382,8 @@ scfoundation-gpu = { features = ["scfoundation-gpu"] }
 scgpt-gpu = { features = ["scgpt-gpu"] }
 geneformer-gpu = { features = ["geneformer", "geneformer-gpu"] }
 geneformer-blackwell = { features = ["geneformer", "geneformer-blackwell"] }
+uce-gpu = { features = ["uce", "uce-gpu"] }
+uce-blackwell = { features = ["uce", "uce-blackwell"] }
 omnipath = { features = ["omnipath"] }
 hf = { features = ["hf"] }
 dashboard = { features = ["base", "dashboard"] }
@@ -359,6 +402,8 @@ collect = { cmd = "python -m omni_scfm.collect", env = { PYTHONPATH = "src" } }
 # split/method modules default to data/godata/gene2go_all.pkl; run this before `ob run`
 # so GEARS doesn't re-download ~9MB per split/method/seed. See modules/godata/gene2go.
 fetch-godata = "bash modules/godata/gene2go/run.sh --output_dir data/godata"
+# Every side-load from scratch (reference data + all pretrained weights), across envs.
+fetch-all = "bash scripts/fetch_all.sh"
 # Side-load the GEARS precomputed GO-essential graph (Dataverse 6934319, md5-pinned) into
 # data/godata/. scFoundation needs it — without it the forked GEARS rebuilds it via a
 # ~99M-pair single-threaded loop (HOURS). See modules/godata/go_essential.

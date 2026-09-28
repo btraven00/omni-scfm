@@ -94,9 +94,12 @@ first-class global-input (planned upstream).
 | `data/replogle/replogle_k562_essential.h5ad` | `pixi run fetch-replogle` | **transfer**, lpm_k562PertEmb | hard-fail (exit 3); it's the reference dataset the method regresses against |
 | `data/embeddings/*.tsv` | `pixi run -e r make-pert-emb-{gears,k562,rpe1}` | **lpm_{gears,k562,rpe1}PertEmb** | hard-fail (exit 3); built from go_essential / Replogle, so fetch those first |
 | `data/scfoundation/models.ckpt` | `pixi run fetch-scfoundation-model` (or scp) | **scfoundation** | hard-fail |
+| `data/uce/model_files/` | `pixi run -e omnidata fetch-uce-model` (figshare 24320806 via hapiq, md5-pinned; ~15GB, `OMNI_UCE_MODELS=4layers` for one) | **uce**, **uce33** | hard-fail (exit 3) |
 | `data/geneformer/geneformer_hf.json` | `pixi run -e hf fetch-geneformer-hf` (HF `ctheodoris/Geneformer@01d3ea89`, code + 95M weights) | **geneformer** | hard-fail (exit 3); a manifest into the shared HF cache — keep that cache on persistent disk |
 | `data/scgpt/scgpt_human_hf.json` | `pixi run -e hf fetch-scgpt-model-hf` (Hugging Face, via omni-huggingface) | **scgpt** | hard-fail; a manifest into the shared HF cache, so re-run it if the cache is cleared |
 | `data/scgpt/scGPT_human/` | `OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model` — **deprecated**, same bytes | **scgpt** (fallback) | only needed if the HF repo is unreachable |
+
+`pixi run fetch-all` runs every fetcher above in order (idempotent; `OMNI_FETCH_SKIP="uce …"` to skip some).
 
 **Mirroring (the hash is the identity, the host is a parameter).** Every fetcher above
 takes `OMNI_<NAME>_URL` / `OMNI_<NAME>_MD5` overrides and verifies the hash *after* the

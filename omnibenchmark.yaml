@@ -26,3 +26,4 @@ entrypoints:
   scfoundation: modules/methods/scfoundation/run.sh
   scgpt: modules/methods/scgpt/run.sh
   geneformer: modules/methods/geneformer/run.sh
+  uce: modules/methods/uce/run.sh

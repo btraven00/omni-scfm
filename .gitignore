@@ -13,6 +13,7 @@ data/replogle/
 # Side-loaded scGPT whole-human checkpoint (fetch-scgpt-model, ~196MB)
 data/scgpt/
 data/geneformer/
+data/uce/
 
 # Python
 __pycache__/
