@@ -20,6 +20,11 @@
 # Env knobs:
 #   OMNI_UCE_MODEL_FILES  dir from `pixi run fetch-uce-model` (default data/uce/model_files)
 #   OMNI_GEARS_CACHE      dir with a gene2go *.pkl (else data/godata side-load)
+#   OMNI_UCE_BATCH        cells per forward pass (default: the paper's 100 for 4layers, 25
+#                         for 33layers, sized for an 80GB GPU). Inference only, fixed-length
+#                         padding, no batch-dependent layers -> each cell's embedding is
+#                         independent of the batch, so lowering it (e.g. 25 on a 24GB L4)
+#                         does not change results. The 4-layer at 100 OOMs a 24GB L4.
 # Output:
 #   {dataset}.predictions.json.gz   {condition: [per-gene prediction]}
 #   {dataset}.gene_names.json
@@ -90,6 +95,7 @@ for f in "$MF"/*; do ln -s "$(realpath "$f")" "$wd/uce/model_files/$(basename "$
 
 patched="$wd/run_uce.py"
 sed -e "s#cd /home/ahlmanne/prog/UCE#cd $wd/uce#" \
+    ${OMNI_UCE_BATCH:+-e "s#--batch_size [0-9]*#--batch_size $OMNI_UCE_BATCH#"} \
     -e "s#/home/ahlmanne/data/universal_cell_embedding/#$(realpath "$MF")/#g" \
     -e "s#[^\"']*scfoundation_gears/#$FORK/#g" \
     -e "s#[^\"']*scfoundation/model/#$MODEL/#g" \
