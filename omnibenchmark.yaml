@@ -25,3 +25,4 @@ entrypoints:
   cpa: modules/methods/cpa/run.sh
   scfoundation: modules/methods/scfoundation/run.sh
   scgpt: modules/methods/scgpt/run.sh
+  geneformer: modules/methods/geneformer/run.sh

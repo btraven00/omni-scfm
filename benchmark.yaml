@@ -43,6 +43,10 @@ software_environments:
     name: scGPT GPU env (paper-pinned, bit-faithful flashattn_env)
     description: scgpt 0.2.1 + flash-attn 1.0.4 + cell-gears 0.0.2; torch 1.13.1 cu117 (use_fast_transformer=True)
     conda: envs/scgpt-gpu.yml
+  geneformer-gpu:
+    name: Geneformer GPU env (paper-pinned geneformer_env)
+    description: transformers 4.47.0 + torch 2.3.0 cu121 + cell-gears 0.1.2; geneformer code/weights side-loaded from the HF snapshot
+    conda: envs/geneformer-gpu.yml
 
 stages:
   # 1. Download raw data (reproducible, via the omni-data remote module).
@@ -72,7 +76,7 @@ stages:
         # keep them off plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
         # transfer + the lpm alt-embedding arm are single-pert only (doubles can't match
         # the reference's / the GO graph's single-gene perturbations), as in the paper.
-        exclude: ["cpa", "scfoundation", "scgpt", "transfer",
+        exclude: ["cpa", "scfoundation", "scgpt", "geneformer", "transfer",
                   "lpm_gearsPertEmb", "lpm_k562PertEmb", "lpm_rpe1PertEmb",
                   "lpm_randomPertEmb", "lpm_randomGeneEmb"]
         repository:
@@ -335,3 +339,14 @@ stages:
         parameters:
           - batch_size: [64]
             epochs: [15]
+      # Geneformer (gf-12L-95M-i4096; verbatim run_geneformer.py). Paper scope: adamson
+      # (delete) + norman_from_scfoundation (overexpress) — `exclude: ["geneformer"]` on
+      # plain norman. perturbation_type is picked from the split (run.sh `auto`). Needs
+      # the side-loaded code + weights: `pixi run -e hf fetch-geneformer-hf`.
+      - id: geneformer
+        name: "Geneformer (foundation model; run_geneformer.py, gf-12L-95M-i4096)"
+        software_environment: "geneformer-gpu"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: geneformer

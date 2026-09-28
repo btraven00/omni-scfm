@@ -454,3 +454,59 @@ def test_scgpt_rejects_bogus_manifest():
                       "--split.set2conditions", "s.json",
                       env_extra={"OMNI_SCGPT_MODEL": str(bogus)})
     assert proc.returncode == 3, proc.stdout + proc.stderr
+
+
+# --- geneformer ----------------------------------------------------------------
+
+def _geneformer_env_bin() -> Path | None:
+    if (ov := os.environ.get("OMNI_GENEFORMER_ENV_BIN")) and (Path(ov) / "python").exists():
+        return Path(ov)
+    return _env_bin("geneformer-gpu")
+
+
+def _geneformer_snapshot() -> Path | None:
+    m = Path(os.environ.get("OMNI_GENEFORMER_HF", REPO / "data" / "geneformer" / "geneformer_hf.json"))
+    if not m.exists():
+        return None
+    snap = Path(json.loads(m.read_text())["snapshot"])
+    return snap if (snap / "gf-12L-95M-i4096" / "model.safetensors").exists() else None
+
+
+@pytest.mark.integration
+def test_geneformer_env_imports():
+    """Env-good guard (no GPU): the pinned geneformer snapshot imports in the env with
+    everything run_geneformer.py pulls from it, at the paper's transformers/gears pins."""
+    gb, snap = _geneformer_env_bin(), _geneformer_snapshot()
+    if gb is None:
+        pytest.skip("geneformer env not available (set OMNI_GENEFORMER_ENV_BIN or build envs/geneformer-gpu.yml)")
+    if snap is None:
+        pytest.skip("no Geneformer snapshot (pixi run -e hf fetch-geneformer-hf)")
+    env = os.environ.copy()
+    env.update({"PYTHONNOUSERSITE": "1", "PYTHONPATH": str(snap)})
+    check = (
+        "from geneformer import TranscriptomeTokenizer, Classifier, InSilicoPerturber;"
+        "from geneformer import perturber_utils as pu;"
+        "from geneformer.emb_extractor import get_embs;"
+        "import transformers, gears.version, geneformer;"
+        "assert transformers.__version__=='4.47.0', transformers.__version__;"
+        "assert gears.version.__version__=='0.1.2', gears.version.__version__;"
+        f"assert geneformer.__file__.startswith('{snap}'), geneformer.__file__"
+    )
+    r = subprocess.run([str(gb / "python"), "-c", check], env=env, capture_output=True, text=True)
+    assert r.returncode == 0, f"geneformer env import failed:\n{r.stdout}\n{r.stderr}"
+
+
+@pytest.mark.integration
+def test_geneformer_entrypoint():
+    gb = _geneformer_env_bin()
+    if gb is None:
+        pytest.skip("geneformer env not available")
+    if not _has_cuda(gb):
+        pytest.skip("no CUDA device (run_geneformer.py fine-tunes on GPU)")
+    if _geneformer_snapshot() is None:
+        pytest.skip("no Geneformer snapshot (pixi run -e hf fetch-geneformer-hf)")
+    cache = _gene2go_dir()
+    if cache is None:
+        pytest.skip("no GEARS gene2go cache (scratch/scf/pertdata)")
+    out, proc = _run("geneformer", gb, [], {"OMNI_GEARS_CACHE": str(cache)})
+    _assert_predictions(out, proc)

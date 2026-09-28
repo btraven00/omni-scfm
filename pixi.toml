@@ -273,6 +273,47 @@ scgpt-postinstall = """python -m pip install --no-deps scgpt==0.2.1 cell-gears==
 [feature.scgpt-gpu.system-requirements]
 cuda = "12"
 
+# geneformer-gpu: the Geneformer method (run_geneformer.py: fine-tune gf-12L-95M-i4096 as
+# a cell classifier, in-silico perturb ctrl cells, ridge from the CLS embedding to
+# expression). Mirrors the paper's geneformer_env (torch 2.3.0 cu121, transformers 4.47.0,
+# cell-gears 0.1.2); full frozen pin set in envs/geneformer-gpu.yml (resolves under full
+# pip resolution as-is — no post-deploy hook). The `geneformer` package itself is NOT
+# installed: it comes from the pinned HF snapshot (fetch-geneformer-hf) on PYTHONPATH.
+[feature.geneformer-gpu.dependencies]
+python = "3.10.*"
+pip = "*"
+
+[feature.geneformer-gpu.pypi-dependencies]
+torch = "==2.3.0"
+transformers = "==4.47.0"
+accelerate = "==1.2.0"
+datasets = "==3.1.0"
+peft = "==0.14.0"
+huggingface-hub = "==0.26.5"
+tokenizers = "==0.21.0"
+safetensors = "==0.4.5"
+cell-gears = "==0.1.2"
+torch-geometric = "==2.5.3"
+numpy = "==1.26.4"
+scipy = "==1.13.1"
+pandas = "==2.2.2"
+anndata = "==0.10.7"
+scanpy = "==1.10.1"
+scikit-learn = "==1.5.0"
+pyarrow = "==18.1.0"
+loompy = "==3.0.7"
+optuna = "==4.1.0"
+optuna-integration = "==4.1.0"
+ray = "==2.40.0"
+tdigest = "==0.5.2.2"
+statsmodels = "==0.14.2"
+seaborn = "==0.13.2"
+tensorboard = "==2.18.0"
+session-info = "==1.0.0"
+
+[feature.geneformer-gpu.system-requirements]
+cuda = "12"
+
 # hf: the omni-huggingface fetcher (modules/godata/scgpt_model_hf). Its own env so
 # huggingface_hub never enters a paper-pinned solve.
 [feature.hf.dependencies]
@@ -288,6 +329,7 @@ gears-gpu = { features = ["gears-gpu"] }
 cpa-gpu = { features = ["cpa-gpu"] }
 scfoundation-gpu = { features = ["scfoundation-gpu"] }
 scgpt-gpu = { features = ["scgpt-gpu"] }
+geneformer-gpu = { features = ["geneformer-gpu"] }
 omnipath = { features = ["omnipath"] }
 hf = { features = ["hf"] }
 dashboard = { features = ["base", "dashboard"] }
@@ -328,3 +370,5 @@ fetch-scgpt-model = "bash modules/godata/scgpt_model/run.sh --output_dir data/sc
 # reads by default; it asserts the bytes match the Drive release. `pixi run -e hf …`.
 [feature.hf.tasks]
 fetch-scgpt-model-hf = "bash modules/godata/scgpt_model_hf/run.sh --output_dir data/scgpt"
+# Geneformer code + gf-12L-95M-i4096 weights at the paper-era commit -> data/geneformer/geneformer_hf.json
+fetch-geneformer-hf = "bash modules/godata/geneformer_hf/run.sh --output_dir data/geneformer"
