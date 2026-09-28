@@ -279,12 +279,16 @@ cuda = "12"
 # cell-gears 0.1.2); full frozen pin set in envs/geneformer-gpu.yml (resolves under full
 # pip resolution as-is — no post-deploy hook). The `geneformer` package itself is NOT
 # installed: it comes from the pinned HF snapshot (fetch-geneformer-hf) on PYTHONPATH.
-[feature.geneformer-gpu.dependencies]
+# Shared pins live in `geneformer`; each env adds only its torch:
+#   geneformer-gpu       = the paper's torch 2.3.0 (cu121; kernels up to sm_90/Hopper)
+#   geneformer-blackwell = torch 2.7.1+cu128, the minimum for Blackwell (sm_120). The ONE
+#     deviation from the paper env (plus torch's own runtime closure: triton, nvidia-*,
+#     sympy) — torch 2.3.0 fails there with "no kernel image is available".
+[feature.geneformer.dependencies]
 python = "3.10.*"
 pip = "*"
 
-[feature.geneformer-gpu.pypi-dependencies]
-torch = "==2.3.0"
+[feature.geneformer.pypi-dependencies]
 transformers = "==4.47.0"
 accelerate = "==1.2.0"
 datasets = "==3.1.0"
@@ -311,8 +315,14 @@ seaborn = "==0.13.2"
 tensorboard = "==2.18.0"
 session-info = "==1.0.0"
 
-[feature.geneformer-gpu.system-requirements]
+[feature.geneformer.system-requirements]
 cuda = "12"
+
+[feature.geneformer-gpu.pypi-dependencies]
+torch = "==2.3.0"
+
+[feature.geneformer-blackwell.pypi-dependencies]
+torch = { version = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" }
 
 # hf: the omni-huggingface fetcher (modules/godata/scgpt_model_hf). Its own env so
 # huggingface_hub never enters a paper-pinned solve.
@@ -329,7 +339,8 @@ gears-gpu = { features = ["gears-gpu"] }
 cpa-gpu = { features = ["cpa-gpu"] }
 scfoundation-gpu = { features = ["scfoundation-gpu"] }
 scgpt-gpu = { features = ["scgpt-gpu"] }
-geneformer-gpu = { features = ["geneformer-gpu"] }
+geneformer-gpu = { features = ["geneformer", "geneformer-gpu"] }
+geneformer-blackwell = { features = ["geneformer", "geneformer-blackwell"] }
 omnipath = { features = ["omnipath"] }
 hf = { features = ["hf"] }
 dashboard = { features = ["base", "dashboard"] }

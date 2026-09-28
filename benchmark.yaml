@@ -47,6 +47,10 @@ software_environments:
     name: Geneformer GPU env (paper-pinned geneformer_env)
     description: transformers 4.47.0 + torch 2.3.0 cu121 + cell-gears 0.1.2; geneformer code/weights side-loaded from the HF snapshot
     conda: envs/geneformer-gpu.yml
+  geneformer-blackwell:
+    name: Geneformer env for Blackwell GPUs (paper pins, torch bumped)
+    description: as geneformer-gpu but torch 2.7.1+cu128 (sm_120); torch 2.3.0 has no Blackwell kernels
+    conda: envs/geneformer-blackwell.yml
 
 stages:
   # 1. Download raw data (reproducible, via the omni-data remote module).
@@ -345,7 +349,9 @@ stages:
       # the side-loaded code + weights: `pixi run -e hf fetch-geneformer-hf`.
       - id: geneformer
         name: "Geneformer (foundation model; run_geneformer.py, gf-12L-95M-i4096)"
-        software_environment: "geneformer-gpu"
+        # geneformer-blackwell for the RTX PRO 6000 box (torch 2.7.1+cu128, the one deviation);
+        # switch back to the paper-faithful "geneformer-gpu" on a pre-Blackwell GPU.
+        software_environment: "geneformer-blackwell"
         repository:
           url: "."
           commit: HEAD
