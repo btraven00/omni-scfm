@@ -52,7 +52,7 @@ Integration-test rules:
 
 Adding a method = add its `run.sh` + entrypoint + `benchmark.yaml` module + a pixi
 feature + (if not exportable) a hand-mirrored `envs/<id>.yml` + one integration test
-following the rules above.
+following the rules above + its row in `docs/PORTING.md` (the per-method checklist).
 
 ## Method modules (`run.sh`)
 
