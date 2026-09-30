@@ -18,8 +18,8 @@ paper-setting run still pending · **todo** = not ported.
 | transfer | – | r | ported | Replogle K562 side-load |
 | gears | yes | gears-gpu | done | on the dashboard |
 | cpa | yes | cpa-gpu | done | norman_from_scfoundation only; on the dashboard |
-| **geneformer** | yes | geneformer-gpu / geneformer-blackwell | done | adamson matches paper per perturbation (r ≥ 0.999); merged into omni-scfm-results (push pending) |
-| **uce**, **uce33** | yes | uce-gpu / uce-blackwell | ported | tested on L4 (norman_tiny); full run on the Blackwell box in progress |
+| **geneformer** | yes | geneformer-gpu / geneformer-blackwell | done | adamson matches paper per perturbation (r ≥ 0.999); in omni-scfm-results |
+| **uce**, **uce33** | yes | uce-gpu / uce-blackwell | done | adamson matches paper per perturbation (\|Δ\| < 5e-4); paper's single "UCE*" can't be attributed to 4 vs 33 layers (they differ ≤ 0.005); in omni-scfm-results |
 | scfoundation | yes | scfoundation-gpu | ported | runs at batch 4 (paper: 6, needs >24 GB); paper run ≈ 70 h/seed; disabled in the plan |
 | scgpt | yes | scgpt-gpu | ported | flash-attn 1.0.4 / torch 1.13 cu117: no Blackwell support → needs a pre-Blackwell GPU |
 | scbert | yes | – | todo | paper: RTX 3090, 4–11 h/job |
