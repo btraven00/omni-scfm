@@ -2,12 +2,16 @@
 # Side-load fetcher: the pretrained scBERT checkpoint (panglao_pretrain.pth), from the
 # HUGGING FACE HUB — same mechanism as ../scgpt_model_hf (omni-huggingface, pinned).
 #
-# Upstream (TencentAILabHealthcare/scBERT) ships it via a login-walled WeChat Drive link;
-# the author later posted a Google Drive copy (scBERT issue #46, Drive id
-# 1_Pgk_o8AtQtoXr_ZLQx0eJYoSWzjxC8f). Nothing upstream publishes a checksum, so we mirrored
-# those exact bytes to btraven/scbert-panglao-pretrain (GPL-3.0 — scBERT's LICENSE covers
-# the weights; the repo carries it) and pin the sha256 of the Drive download here: that
-# hash, not the host, is the identity. Any mirror serving the same bytes passes.
+# Upstream (TencentAILabHealthcare/scBERT) ships it only via a login-walled WeChat Drive
+# link, or by email from the author (fionafyang@tencent.com). The only public copy is a
+# THIRD-PARTY Google Drive re-upload (Drive id 1_Pgk_o8AtQtoXr_ZLQx0eJYoSWzjxC8f), posted
+# in scBERT issue #46 by a GitHub user with no repo affiliation, apparently after getting
+# it from the author by email — NOT verified by Tencent. Corroboration: every tensor
+# matches HF kaichenxu/cape_scbert@88256813 (90/91 bit-identical, pos_emb equal after its
+# f64->f32 cast). Nothing upstream publishes a checksum, so we mirrored those exact bytes
+# to btraven/scbert-panglao-pretrain (GPL-3.0 — scBERT's LICENSE covers the weights; the
+# repo carries it) and pin the sha256 of the Drive download here: that hash, not the host,
+# is the identity. Any mirror serving the same bytes passes.
 #
 # Writes a MANIFEST, not a copy: the file lands once in the shared HF cache and the
 # manifest records `snapshot`, the cache path. Clearing the cache invalidates it — re-run.
@@ -17,7 +21,7 @@
 set -euo pipefail
 
 REPO_HF="${OMNI_HF_REPO:-btraven/scbert-panglao-pretrain}"
-REV="${OMNI_HF_REVISION:-2cab9c47d58740f8599efdb4326b334762f4b41c}"
+REV="${OMNI_HF_REVISION:-cbf8b4eb68bb3a17dce9aad7250b5d027fe1f2b6}"
 MODULE_URL="${OMNI_HF_MODULE_URL:-https://github.com/omnibenchmark/omni-huggingface}"
 MODULE_COMMIT="${OMNI_HF_MODULE_COMMIT:-dd042df5956fff3a022dde98a0fffa3e5517c503}"
 
