@@ -63,6 +63,14 @@ software_environments:
     name: UCE env for Blackwell GPUs (paper pins, torch bumped)
     description: as uce-gpu but torch 2.7.1+cu128 (sm_120); torch 2.1.1 has no Blackwell kernels
     conda: envs/uce-blackwell.yml
+  scbert-gpu:
+    name: scBERT GPU env (paper-pinned scbert_env)
+    description: torch 2.3.0 cu121 + cell-gears 0.1.2 + local-attention 1.9.15; scBERT code vendored, checkpoint side-loaded
+    conda: envs/scbert-gpu.yml
+  scbert-blackwell:
+    name: scBERT env for Blackwell GPUs (paper pins, torch bumped)
+    description: as scbert-gpu but torch 2.7.1+cu128 (sm_120); torch 2.3.0 has no Blackwell kernels
+    conda: envs/scbert-blackwell.yml
 
 stages:
   # 1. Download raw data (reproducible, via the omni-data remote module).
@@ -92,7 +100,7 @@ stages:
         # keep them off plain norman. Mirror of the gears `exclude` on norman_from_scfoundation.
         # transfer + the lpm alt-embedding arm are single-pert only (doubles can't match
         # the reference's / the GO graph's single-gene perturbations), as in the paper.
-        exclude: ["cpa", "scfoundation", "scgpt", "geneformer", "uce", "uce33", "transfer",
+        exclude: ["cpa", "scfoundation", "scgpt", "geneformer", "uce", "uce33", "scbert", "transfer",
                   "lpm_gearsPertEmb", "lpm_k562PertEmb", "lpm_rpe1PertEmb",
                   "lpm_randomPertEmb", "lpm_randomGeneEmb",
                   "lpm_scgptGeneEmb", "lpm_scFoundationGeneEmb"]
@@ -407,3 +415,18 @@ stages:
           entrypoint: uce
         parameters:
           - model_type: ["33layers"]
+      # scBERT (Performer pretrained on PanglaoDB; verbatim run_scbert.py + the paper's
+      # finetune_modified.py / attn_sum_save_modified.py, vendored scBERT @262fd4b9).
+      # Fine-tunes, then embeds. Paper scope: adamson + norman_from_scfoundation (`exclude`
+      # on plain norman). Needs the side-loaded checkpoint: `pixi run -e hf fetch-scbert-hf`.
+      # scbert-blackwell for the RTX PRO 6000 box; "scbert-gpu" is the paper-faithful torch 2.3.0.
+      # finetuning_epochs: the paper runs the script default, 100.
+      - id: scbert
+        name: "scBERT (foundation model; run_scbert.py)"
+        software_environment: "scbert-blackwell"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: scbert
+        parameters:
+          - finetuning_epochs: [100]
