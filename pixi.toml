@@ -388,6 +388,44 @@ torch = "==2.1.1"
 [feature.uce-blackwell.pypi-dependencies]
 torch = { version = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" }
 
+# scbert: the scBERT method (run_scbert.py: fine-tune the pretrained Performer as a
+# perturbation classifier via the paper's finetune_modified.py, embed ctrl cells with the
+# target genes' expression swapped in via attn_sum_save_modified.py, ridge to expression).
+# Mirrors the paper's scbert_env (torch 2.3.0 cu121, cell-gears 0.1.2, local-attention
+# 1.9.15); frozen pin sets in envs/scbert-gpu.yml (the paper's, verbatim) and
+# envs/scbert-blackwell.yml (torch 2.7.1+cu128 — the one deviation, for sm_120). This
+# curated subset = everything the scBERT code + run_scbert.py import. apex / fast_transformers
+# are optional in performer_pytorch (try/except; causal only) and absent in the paper too.
+# Code vendored (vendor/scbert @262fd4b9), checkpoint side-loaded (fetch-scbert-hf).
+[feature.scbert.dependencies]
+python = "3.10.*"
+pip = "*"
+
+[feature.scbert.pypi-dependencies]
+anndata = "==0.10.7"
+cell-gears = "==0.1.2"
+torch-geometric = "==2.5.3"
+einops = "==0.8.0"
+local-attention = "==1.9.15"
+numpy = "==1.26.4"
+scipy = "==1.13.1"
+pandas = "==2.2.2"
+scanpy = "==1.10.1"
+scikit-learn = "==1.5.0"
+h5py = "==3.11.0"
+numba = "==0.59.1"
+requests = "==2.32.3"
+session-info = "==1.0.0"
+
+[feature.scbert.system-requirements]
+cuda = "12"
+
+[feature.scbert-gpu.pypi-dependencies]
+torch = "==2.3.0"
+
+[feature.scbert-blackwell.pypi-dependencies]
+torch = { version = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" }
+
 # hf: the omni-huggingface fetcher (modules/godata/scgpt_model_hf). Its own env so
 # huggingface_hub never enters a paper-pinned solve.
 [feature.hf.dependencies]
@@ -408,6 +446,8 @@ geneformer-gpu = { features = ["geneformer", "geneformer-gpu"] }
 geneformer-blackwell = { features = ["geneformer", "geneformer-blackwell"] }
 uce-gpu = { features = ["uce", "uce-gpu"] }
 uce-blackwell = { features = ["uce", "uce-blackwell"] }
+scbert-gpu = { features = ["scbert", "scbert-gpu"] }
+scbert-blackwell = { features = ["scbert", "scbert-blackwell"] }
 omnipath = { features = ["omnipath"] }
 hf = { features = ["hf"] }
 dashboard = { features = ["base", "dashboard"] }
