@@ -619,3 +619,96 @@ def test_uce_entrypoint():
                      {"OMNI_GEARS_CACHE": str(cache), "OMNI_UCE_MODEL_FILES": str(mf),
                       "OMNI_UCE_BATCH": os.environ.get("OMNI_UCE_BATCH", "25")})
     _assert_predictions(out, proc)
+
+
+def _scbert_env_bin() -> Path | None:
+    if (ov := os.environ.get("OMNI_SCBERT_ENV_BIN")) and (Path(ov) / "python").exists():
+        return Path(ov)
+    return _env_bin("scbert-blackwell") or _env_bin("scbert-gpu")
+
+
+def _scbert_ckpt() -> Path | None:
+    m = Path(os.environ.get("OMNI_SCBERT_MODEL", REPO / "data" / "scbert" / "scbert_hf.json"))
+    if not m.exists():
+        return None
+    p = Path(json.loads(m.read_text())["snapshot"]) / "panglao_pretrain.pth" if m.suffix == ".json" else m
+    return p if p.exists() else None
+
+
+def test_scbert_patch_targets_exist():
+    """run.sh sed-patches six cluster paths in the vendored run_scbert.py (and refuses to run
+    if any is left); pin that the targets are still there."""
+    src = (REPO / "vendor" / "paper" / "benchmark" / "src" / "run_scbert.py").read_text()
+    assert src.count("cd /home/ahlmanne/prog/scBERT") == 2
+    assert "/home/ahlmanne/data/scbert/panglao_human.h5ad" in src
+    assert "/home/ahlmanne/projects/perturbation_prediction-benchmark/data/panglao_pretrain.pth" in src
+    assert src.count("scfoundation_gears/") == 1 and src.count("scfoundation/model/") == 1
+
+
+def test_scbert_reports_missing_checkpoint():
+    proc = subprocess.run(
+        ["bash", "modules/methods/scbert/run.sh", "--output_dir", "/tmp/x",
+         "--data.h5ad", "x.h5ad", "--split.set2conditions", "s.json"],
+        cwd=REPO, env={**os.environ, "OMNI_SCBERT_MODEL": "/nonexistent.pth"},
+        capture_output=True, text=True)
+    assert proc.returncode == 3 and "fetch-scbert-hf" in proc.stderr, proc.stderr
+
+
+@pytest.mark.integration
+def test_scbert_env_imports():
+    """Env-good guard (no GPU/weights): the vendored scBERT code + run_scbert.py's deps import."""
+    sb = _scbert_env_bin()
+    if sb is None:
+        pytest.skip("scbert env not available (set OMNI_SCBERT_ENV_BIN or build envs/scbert-*.yml)")
+    env = os.environ.copy()
+    env["PYTHONNOUSERSITE"] = "1"
+    check = ("import torch, local_attention, scanpy, anndata, sklearn, session_info, gears.version;"
+             "from performer_pytorch import PerformerLM; import utils;"
+             "assert gears.version.__version__=='0.1.2'")
+    r = subprocess.run([str(sb / "python"), "-c", check], cwd=REPO / "vendor" / "scbert",
+                       env=env, capture_output=True, text=True)
+    assert r.returncode == 0, f"scbert env import failed:\n{r.stdout}\n{r.stderr}"
+
+
+@pytest.mark.integration
+def test_scbert_entrypoint():
+    """End-to-end at 1 fine-tune epoch (the paper's 100 is hours). Exercises the whole chain:
+    side inputs, torch.distributed fine-tune, the per-condition embedding subprocesses, and
+    loading the fine-tuned checkpoint (under torch>=2.6's weights_only default when the
+    blackwell env is the one found).
+
+    Not on norman_tiny: run_scbert.py drops cells with <200 expressed genes
+    (sc.pp.filter_cells(min_genes=200), scBERT's preprocessing) and that fixture has only
+    200 genes in total, so nothing survives. Set OMNI_SCBERT_FIXTURE to a dir holding
+    <name>.h5ad + <name>.set2conditions.json with a full gene panel (e.g. an adamson slice)."""
+    sb = _scbert_env_bin()
+    if sb is None:
+        pytest.skip("scbert env not available")
+    if not _has_cuda(sb):
+        pytest.skip("no CUDA device (fine-tuning uses torch.distributed with nccl)")
+    ckpt = _scbert_ckpt()
+    if ckpt is None:
+        pytest.skip("no scBERT checkpoint (pixi run -e hf fetch-scbert-hf)")
+    cache = _gene2go_dir()
+    if cache is None:
+        pytest.skip("no GEARS gene2go cache (pixi run fetch-godata)")
+    fixture = os.environ.get("OMNI_SCBERT_FIXTURE")
+    if not fixture:
+        pytest.skip("norman_tiny has only 200 genes (scBERT keeps cells with >=200 expressed); "
+                    "set OMNI_SCBERT_FIXTURE to a full-panel dataset dir")
+    fx = Path(fixture); name = fx.name
+    out = Path(tempfile.mkdtemp())
+    env = os.environ.copy()
+    env["PATH"] = f"{sb}:{env['PATH']}"
+    env.update({"OMNI_GEARS_CACHE": str(cache), "OMNI_SCBERT_MODEL": str(ckpt),
+                "OMNI_SCBERT_EPOCHS": os.environ.get("OMNI_SCBERT_EPOCHS", "1")})
+    proc = subprocess.run(
+        ["bash", "modules/methods/scbert/run.sh", "--output_dir", str(out),
+         "--data.h5ad", str(fx / f"{name}.h5ad"),
+         "--split.set2conditions", str(fx / f"{name}.set2conditions.json"), "--seed", "1"],
+        cwd=REPO, env=env, capture_output=True, text=True)
+    assert proc.returncode == 0, f"run.sh failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}"
+    names = json.loads((out / f"{name}.gene_names.json").read_text())
+    with gzip.open(out / f"{name}.predictions.json.gz", "rt") as fh:
+        d = json.load(fh)
+    assert d and all(len(v) == len(names) for v in d.values())

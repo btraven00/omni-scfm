@@ -33,6 +33,10 @@
 #   OMNI_SCBERT_MODEL    manifest (json with "snapshot") or the .pth itself
 #                        (default data/scbert/scbert_hf.json)
 #   OMNI_SCBERT_EPOCHS   fine-tune epochs if --finetuning_epochs is not given (default 100)
+#   OMNI_SCBERT_BATCH    fine-tune batch size; unset = finetune_modified.py's default 3 (the
+#                        paper; needs a ~24GB GPU, it ran on an RTX 3090). For SMOKE TESTS on
+#                        small GPUs only: batch size changes training, so never set it for a
+#                        run whose numbers you report.
 #   OMNI_GEARS_CACHE     dir with a gene2go *.pkl (else data/godata side-load)
 # Output:
 #   {dataset}.predictions.json.gz   {condition: [per-gene prediction]}
@@ -107,8 +111,9 @@ sed -e "s#cd /home/ahlmanne/prog/scBERT#cd $wd/scbert#g" \
     -e "s#/home/ahlmanne/projects/perturbation_prediction-benchmark/data/panglao_pretrain.pth#$ckpt#" \
     -e "s#[^\"']*scfoundation_gears/#$FORK/#g" \
     -e "s#[^\"']*scfoundation/model/#$MODEL/#g" \
+    ${OMNI_SCBERT_BATCH:+-e "s#finetune_modified.py \\\\#finetune_modified.py --batch_size $OMNI_SCBERT_BATCH \\\\#"} \
     "$PAPER_SRC/run_scbert.py" > "$patched"
-if grep -nE "/home/ahlmanne|/g/huber" "$patched" >&2; then
+if grep -nE "^[^#]*(/home/ahlmanne|/g/huber)" "$patched" >&2; then   # code only; two comments mention the old path
   echo "scbert/run.sh: unpatched cluster path(s) above — upstream script changed?" >&2; exit 5
 fi
 export OMNI_VENDORED_SCRIPT="$patched"
