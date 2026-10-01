@@ -452,3 +452,6 @@ fetch-scgpt-model = "bash modules/godata/scgpt_model/run.sh --output_dir data/sc
 fetch-scgpt-model-hf = "bash modules/godata/scgpt_model_hf/run.sh --output_dir data/scgpt"
 # Geneformer code + gf-12L-95M-i4096 weights at the paper-era commit -> data/geneformer/geneformer_hf.json
 fetch-geneformer-hf = "bash modules/godata/geneformer_hf/run.sh --output_dir data/geneformer"
+# scBERT pretrained checkpoint from our GPL-3.0 mirror (btraven/scbert-panglao-pretrain),
+# sha256-pinned to the author's Drive release -> data/scbert/scbert_hf.json
+fetch-scbert-hf = "bash modules/godata/scbert_model_hf/run.sh --output_dir data/scbert"

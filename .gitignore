@@ -13,6 +13,7 @@ data/replogle/
 # Side-loaded scGPT whole-human checkpoint (fetch-scgpt-model, ~196MB)
 data/scgpt/
 data/geneformer/
+data/scbert/
 data/uce/
 # gene embeddings for lpm_*GeneEmb (154MB/322MB; rebuilt by make-gene-emb-*). The small
 # pert embeddings next to them are tracked.

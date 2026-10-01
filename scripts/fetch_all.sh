@@ -22,6 +22,7 @@ steps=(
   "gene-emb-scf   scfoundation-gpu make-gene-emb-scfoundation"
   "gene-emb-scgpt scgpt-gpu        make-gene-emb-scgpt"
   "geneformer     hf        fetch-geneformer-hf"
+  "scbert         hf        fetch-scbert-hf"
   "uce            omnidata  fetch-uce-model"
 )
 failed=()

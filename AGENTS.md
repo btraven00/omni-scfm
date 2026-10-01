@@ -97,6 +97,7 @@ first-class global-input (planned upstream).
 | `data/scfoundation/models.ckpt` | `pixi run fetch-scfoundation-model` (or scp) | **scfoundation** | hard-fail |
 | `data/uce/model_files/` | `pixi run -e omnidata fetch-uce-model` (figshare 24320806 via hapiq, md5-pinned; ~15GB, `OMNI_UCE_MODELS=4layers` for one) | **uce**, **uce33** | hard-fail (exit 3) |
 | `data/geneformer/geneformer_hf.json` | `pixi run -e hf fetch-geneformer-hf` (HF `ctheodoris/Geneformer@01d3ea89`, code + 95M weights) | **geneformer** | hard-fail (exit 3); a manifest into the shared HF cache — keep that cache on persistent disk |
+| `data/scbert/scbert_hf.json` | `pixi run -e hf fetch-scbert-hf` (our GPL-3.0 mirror `btraven/scbert-panglao-pretrain@2cab9c47`, sha256-pinned to the author's Drive release) | **scbert** (not ported yet) | — |
 | `data/scgpt/scgpt_human_hf.json` | `pixi run -e hf fetch-scgpt-model-hf` (Hugging Face, via omni-huggingface) | **scgpt** | hard-fail; a manifest into the shared HF cache, so re-run it if the cache is cleared |
 | `data/scgpt/scGPT_human/` | `OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model` — **deprecated**, same bytes | **scgpt** (fallback) | only needed if the HF repo is unreachable |
 
