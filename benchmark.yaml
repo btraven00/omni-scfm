@@ -90,7 +90,8 @@ stages:
         # the reference's / the GO graph's single-gene perturbations), as in the paper.
         exclude: ["cpa", "scfoundation", "scgpt", "geneformer", "uce", "uce33", "transfer",
                   "lpm_gearsPertEmb", "lpm_k562PertEmb", "lpm_rpe1PertEmb",
-                  "lpm_randomPertEmb", "lpm_randomGeneEmb"]
+                  "lpm_randomPertEmb", "lpm_randomGeneEmb",
+                  "lpm_scgptGeneEmb", "lpm_scFoundationGeneEmb"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e
@@ -107,7 +108,8 @@ stages:
         # transfer + the lpm alt-embedding arm are single-pert only (see the norman module).
         exclude: ["gears", "transfer",
                   "lpm_gearsPertEmb", "lpm_k562PertEmb", "lpm_rpe1PertEmb",
-                  "lpm_randomPertEmb", "lpm_randomGeneEmb"]
+                  "lpm_randomPertEmb", "lpm_randomGeneEmb",
+                  "lpm_scgptGeneEmb", "lpm_scFoundationGeneEmb"]
         # The raw figshare h5ad (gse133344_…_withtotalcount, 19264 genes); the
         # preprocess stage runs GEARS new_data_process on it. Fetched from the
         # figshare API host: figshare.com/ndownloader returns HTTP 202 (async) which
@@ -231,7 +233,8 @@ stages:
       # embedding swapped, which is how it asks whether a fancier G or P buys anything
       # (run_perturbation_benchmark.R:31-38). All CPU. Single-pert only, like the paper's
       # own job list — excluded from both norman modules. The *PertEmb variants need a
-      # side-loaded tsv: `pixi run -e r make-pert-emb-{gears,k562,rpe1}`.
+      # side-loaded tsv: `pixi run -e r make-pert-emb-{gears,k562,rpe1}`; the *GeneEmb ones
+      # `pixi run -e {scgpt,scfoundation}-gpu make-gene-emb-{scgpt,scfoundation}`.
       - id: lpm_gearsPertEmb
         name: "lpm with P from GEARS' GO graph (run_linear_pretrained_model.R)"
         software_environment: "r"
@@ -268,6 +271,21 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: lpm_randomGeneEmb
+      # G from a foundation model's gene embedding — read against lpm_randomGeneEmb.
+      - id: lpm_scgptGeneEmb
+        name: "lpm with G from scGPT (run_linear_pretrained_model.R)"
+        software_environment: "r"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: lpm_scgptGeneEmb
+      - id: lpm_scFoundationGeneEmb
+        name: "lpm with G from scFoundation (run_linear_pretrained_model.R)"
+        software_environment: "r"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: lpm_scFoundationGeneEmb
       - id: additive
         name: "additive model (double-pert linear baseline, verbatim run_additive_model.py)"
         software_environment: "gears"

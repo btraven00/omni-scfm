@@ -157,6 +157,32 @@ def test_lpm_pert_embedding_entrypoint(tmp_path):
 
 
 @pytest.mark.integration
+def test_lpm_gene_embedding_entrypoint(tmp_path):
+    """The precomputed GENE-embedding path (lpm_{scgpt,scFoundation}GeneEmb share it): a
+    tsv whose header is gene names, rows = dims. Synthesised (the real ones are built from
+    the model checkpoints), half the panel missing — like a real model vocabulary."""
+    rb = _env_bin("r")
+    if not (rb and (rb / "Rscript").exists() and (rb / "python3").exists()):
+        pytest.skip("r pixi env not available")
+    genes = json.loads((FIX / f"{NAME}.gene_names.json").read_text())[::2] + ["NOT_A_GENE"]
+    rng = random.Random(0)
+    tsv = tmp_path / "emb.tsv"
+    tsv.write_text("\t".join(genes) + "\n" +
+                   "\n".join("\t".join(f"{rng.gauss(0, 1):.6f}" for _ in genes)
+                             for _ in range(10)) + "\n")
+    out, proc = _run("lpm_scgptGeneEmb", rb, [], extra_env={"OMNI_GENE_EMB": str(tsv)})
+    # NOT the full-panel contract: run_linear_pretrained_model.R predicts only the genes
+    # the embedding covers (paper behaviour, e.g. 4399/5060 adamson genes for scGPT), and
+    # gene_names.json says which — the collector scores by name.
+    assert proc.returncode == 0, f"run.sh failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}"
+    names = json.loads((out / f"{NAME}.gene_names.json").read_text())
+    with gzip.open(out / f"{NAME}.predictions.json.gz", "rt") as fh:
+        d = json.load(fh)
+    assert d and sorted(names) == sorted(genes[:-1])
+    assert all(len(v) == len(names) for v in d.values())
+
+
+@pytest.mark.integration
 def test_pert_embedding_builder_pca(tmp_path):
     """modules/godata/pert_embedding --kind pca on the fixture: what feeds
     lpm_{k562,rpe1}PertEmb, built from a dataset instead of Replogle. (--kind gears isn't
@@ -182,15 +208,19 @@ def test_pert_embedding_builder_pca(tmp_path):
 
 
 @pytest.mark.integration
-def test_lpm_pert_embedding_missing_side_load():
+@pytest.mark.parametrize("method,var,hint", [
+    ("lpm_k562PertEmb", "OMNI_PERT_EMB", "make-pert-emb"),
+    ("lpm_scgptGeneEmb", "OMNI_GENE_EMB", "make-gene-emb"),
+])
+def test_lpm_embedding_missing_side_load(method, var, hint):
     """Missing side-load must fail loudly (exit 3), not silently predict nothing."""
     proc = subprocess.run(
-        ["bash", "modules/methods/lpm_k562PertEmb/run.sh", "--output_dir", "/tmp/unused",
+        ["bash", f"modules/methods/{method}/run.sh", "--output_dir", "/tmp/unused",
          "--data.h5ad", str(FIX / f"{NAME}.h5ad")],
-        cwd=REPO, env={**os.environ, "OMNI_PERT_EMB": "/nonexistent.tsv"},
+        cwd=REPO, env={**os.environ, var: "/nonexistent.tsv"},
         capture_output=True, text=True)
     assert proc.returncode == 3, proc.stderr
-    assert "make-pert-emb" in proc.stderr
+    assert hint in proc.stderr
 
 
 @pytest.mark.integration

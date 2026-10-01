@@ -14,6 +14,9 @@ data/replogle/
 data/scgpt/
 data/geneformer/
 data/uce/
+# gene embeddings for lpm_*GeneEmb (154MB/322MB; rebuilt by make-gene-emb-*). The small
+# pert embeddings next to them are tracked.
+data/embeddings/*_gene.tsv
 
 # Python
 __pycache__/

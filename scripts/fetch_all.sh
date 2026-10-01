@@ -19,6 +19,8 @@ steps=(
   "pert-emb-k562  r         make-pert-emb-k562"
   "scfoundation   default   fetch-scfoundation-model"
   "scgpt          hf        fetch-scgpt-model-hf"
+  "gene-emb-scf   scfoundation-gpu make-gene-emb-scfoundation"
+  "gene-emb-scgpt scgpt-gpu        make-gene-emb-scgpt"
   "geneformer     hf        fetch-geneformer-hf"
   "uce            omnidata  fetch-uce-model"
 )

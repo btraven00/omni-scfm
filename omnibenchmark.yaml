@@ -14,12 +14,14 @@ entrypoints:
   lpm: modules/methods/lpm/run.sh
   transfer: modules/methods/transfer/run.sh
   # lpm variants: same run_linear_pretrained_model.R, one embedding swapped (the paper's
-  # alt_embedding arm). The *PertEmb ones read a side-loaded tsv from data/embeddings/.
+  # alt_embedding arm). The *PertEmb / *GeneEmb ones read a side-loaded tsv from data/embeddings/.
   lpm_gearsPertEmb: modules/methods/lpm_gearsPertEmb/run.sh
   lpm_k562PertEmb: modules/methods/lpm_k562PertEmb/run.sh
   lpm_rpe1PertEmb: modules/methods/lpm_rpe1PertEmb/run.sh
   lpm_randomPertEmb: modules/methods/lpm_randomPertEmb/run.sh
   lpm_randomGeneEmb: modules/methods/lpm_randomGeneEmb/run.sh
+  lpm_scgptGeneEmb: modules/methods/lpm_scgptGeneEmb/run.sh
+  lpm_scFoundationGeneEmb: modules/methods/lpm_scFoundationGeneEmb/run.sh
   additive: modules/methods/additive/run.sh
   gears: modules/methods/gears/run.sh
   cpa: modules/methods/cpa/run.sh

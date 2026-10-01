@@ -23,7 +23,7 @@ paper-setting run still pending · **todo** = not ported.
 | scfoundation | yes | scfoundation-gpu | ported | runs at batch 4 (paper: 6, needs >24 GB); paper run ≈ 70 h/seed; disabled in the plan |
 | scgpt | yes | scgpt-gpu | ported | flash-attn 1.0.4 / torch 1.13 cu117: no Blackwell support → needs a pre-Blackwell GPU |
 | scbert | yes | – | todo | paper: RTX 3090, 4–11 h/job |
-| lpm_scgptGeneEmb, lpm_scFoundationGeneEmb | brief | – | todo | one-off GPU gene-embedding extraction (~30 min), then the CPU lpm |
+| lpm_scgptGeneEmb, lpm_scFoundationGeneEmb | – | r | done | adamson matches paper per perturbation (\|Δ\| < 3e-6, Panel C); embeddings are CPU weight lookups (`make-gene-emb-*`), no GPU needed |
 
 ## Open issues (not per-method)
 

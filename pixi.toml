@@ -140,6 +140,12 @@ scipy = "==1.13.1"
 scanpy = "==1.10.1"
 session-info = "==1.0.0"
 
+[feature.scfoundation-gpu.tasks]
+# Side-load: scFoundation's gene embedding (the checkpoint's pos_emb) for
+# lpm_scFoundationGeneEmb -> data/embeddings/scfoundation_gene.tsv. CPU; needs
+# `pixi run fetch-scfoundation-model`.
+make-gene-emb-scfoundation = "bash modules/godata/gene_embedding/run.sh --output_dir data/embeddings --kind scfoundation"
+
 [feature.scfoundation-gpu.system-requirements]
 cuda = "12"
 
@@ -254,7 +260,11 @@ numba = "==0.59.1"
 h5py = "==3.11.0"
 einops = "==0.8.0"
 orbax = "==0.1.7"
-ninja = "*"                  # flash-attn 1.0.4 builds its CUDA extension with ninja
+scib = "==1.1.5"              # `import scgpt` needs it (scgpt/utils/util.py); yml pin
+ipython = "==8.24.0"          # likewise (scgpt/utils/util.py imports IPython); paper pin
+datasets = "==2.14.5"          # likewise (scgpt/tasks); yml pin
+pyarrow = "==16.1.0"           # datasets 2.14.5 needs pa.PyExtensionType (gone in newer pyarrow); yml pin
+ninja = "*"                # flash-attn 1.0.4 builds its CUDA extension with ninja
 # NB: don't pin `packaging` here — the conda `pip` pins it (26.x) and a pypi `==24.0`
 # (the paper's value) makes the solve unsatisfiable. packaging is a build/meta tool with
 # no numerical effect, so the conda-resolved version is fine (envs/scgpt-gpu.yml, the
@@ -273,6 +283,11 @@ session-info = "==1.0.0"
 # documented deviation à la scfoundation's batch=4). Do NOT escape the rest to a newer stack.
 scgpt-postinstall = """python -m pip install --no-deps scgpt==0.2.1 cell-gears==0.0.2 torchtext==0.14.0 \
 && python -m pip install --no-build-isolation flash-attn==1.0.4"""
+# Side-load: scGPT's gene embedding for lpm_scgptGeneEmb -> data/embeddings/scgpt_gene.tsv.
+# A weight lookup (no flash-attn, no GPU), so it only needs the postinstall's --no-deps line,
+# re-run here (a no-op once installed). Needs `pixi run -e hf fetch-scgpt-model-hf`.
+make-gene-emb-scgpt = """python -m pip install -q --no-deps scgpt==0.2.1 cell-gears==0.0.2 torchtext==0.14.0 \
+&& bash modules/godata/gene_embedding/run.sh --output_dir data/embeddings --kind scgpt"""
 
 # Same __cuda caveat as gears-gpu: pixi doesn't auto-detect the driver for local installs.
 [feature.scgpt-gpu.system-requirements]

@@ -93,6 +93,7 @@ first-class global-input (planned upstream).
 | `data/godata/go_essential_all.csv` | `pixi run fetch-go-essential` | **scfoundation** | forked GEARS rebuilds the GO graph via a ~99M-pair single-thread loop (**HOURS**) |
 | `data/replogle/replogle_k562_essential.h5ad` | `pixi run fetch-replogle` | **transfer**, lpm_k562PertEmb | hard-fail (exit 3); it's the reference dataset the method regresses against |
 | `data/embeddings/*.tsv` | `pixi run -e r make-pert-emb-{gears,k562,rpe1}` | **lpm_{gears,k562,rpe1}PertEmb** | hard-fail (exit 3); built from go_essential / Replogle, so fetch those first |
+| `data/embeddings/{scgpt,scfoundation}_gene.tsv` | `pixi run -e scgpt-gpu make-gene-emb-scgpt` / `-e scfoundation-gpu make-gene-emb-scfoundation` | **lpm_{scgpt,scFoundation}GeneEmb** | hard-fail (exit 3); CPU weight lookups from the two checkpoints, so fetch those first |
 | `data/scfoundation/models.ckpt` | `pixi run fetch-scfoundation-model` (or scp) | **scfoundation** | hard-fail |
 | `data/uce/model_files/` | `pixi run -e omnidata fetch-uce-model` (figshare 24320806 via hapiq, md5-pinned; ~15GB, `OMNI_UCE_MODELS=4layers` for one) | **uce**, **uce33** | hard-fail (exit 3) |
 | `data/geneformer/geneformer_hf.json` | `pixi run -e hf fetch-geneformer-hf` (HF `ctheodoris/Geneformer@01d3ea89`, code + 95M weights) | **geneformer** | hard-fail (exit 3); a manifest into the shared HF cache — keep that cache on persistent disk |

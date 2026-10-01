@@ -76,6 +76,7 @@ dependencies:
   - idna==3.7
   - igraph==0.11.5
   - importlib-resources==6.4.0
+  - ipython==8.24.0       # `import scgpt` needs IPython (scgpt/utils/util.py); paper pin, was missing
   - jax==0.4.28
   - jaxlib==0.4.28
   - jinja2==3.1.4
