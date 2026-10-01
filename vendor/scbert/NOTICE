@@ -1,0 +1,19 @@
+Vendored from https://github.com/TencentAILabHealthcare/scBERT @ 262fd4b91f3f1c21a6e595d03d4ef423e16ffc99
+(2023-12-13, the latest commit; finetune.py / performer_pytorch unchanged since 2022-10-10).
+Unmodified (git blob hashes match upstream). GPL-3.0, see ./LICENSE — Copyright (c) 2023
+Tencent Inc.; the licence covers both the code and the model weights.
+
+Only what the paper's two entry scripts import is kept: utils.py + performer_pytorch/.
+The entry scripts themselves are the paper's modified copies,
+vendor/paper/benchmark/src/{finetune_modified,attn_sum_save_modified}.py, which the paper
+dropped into its scBERT clone and modules/methods/scbert copies into a per-job copy of this
+dir. Their changes vs upstream finetune.py / attn_sum_save.py:
+  finetune_modified.py       rank from $LOCAL_RANK, --local-rank flag, load_state_dict(strict=False),
+                             classification_report(labels=...) instead of target_names=
+  attn_sum_save_modified.py  load_state_dict(strict=False); returns the mean-pooled 200-d
+                             encoding (over 3 of 100 rows) instead of the attention sum
+
+NOT vendored (side-loads): the pretrained checkpoint panglao_pretrain.pth
+(`pixi run -e hf fetch-scbert-hf`, our sha256-pinned GPL-3.0 mirror
+btraven/scbert-panglao-pretrain) and ../data/gene2vec_16906.npy, which
+performer_pytorch.py:442 loads relative to the cwd (rebuilt per job from the checkpoint).
