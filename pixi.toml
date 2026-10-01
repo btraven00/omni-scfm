@@ -121,14 +121,14 @@ cuda = "12"
 # backbone). All-pip like cpa-gpu; torch 2.0.1's default PyPI wheel is cu117; the encoder
 # uses local-attention (no flash-attn). The forked gears 0.0.2 is vendored and put on
 # sys.path by the module — pip cell-gears 0.1.2 only supplies shared deps. Mirror:
-# envs/scfoundation-gpu.yml (hand-maintained for OB).
-[feature.scfoundation-gpu.dependencies]
+# envs/scfoundation-gpu.yml (hand-maintained for OB). scfoundation-blackwell = the same
+# with torch/torchvision bumped to 2.7.1/0.22.1 cu128 (torch 2.0.1 has no sm_120 kernels;
+# torchvision is only imported by the encoder) — mirror envs/scfoundation-blackwell.yml.
+[feature.scfoundation.dependencies]
 python = "3.10.*"
 pip = "*"
 
-[feature.scfoundation-gpu.pypi-dependencies]
-torch = "==2.0.1"
-torchvision = "==0.15.2"   # scFoundation encoder (modules/encoders.py) imports it
+[feature.scfoundation.pypi-dependencies]
 torch-geometric = "==2.5.3"
 cell-gears = "==0.1.2"
 einops = "==0.8.0"
@@ -140,14 +140,22 @@ scipy = "==1.13.1"
 scanpy = "==1.10.1"
 session-info = "==1.0.0"
 
-[feature.scfoundation-gpu.tasks]
+[feature.scfoundation.tasks]
 # Side-load: scFoundation's gene embedding (the checkpoint's pos_emb) for
 # lpm_scFoundationGeneEmb -> data/embeddings/scfoundation_gene.tsv. CPU; needs
 # `pixi run fetch-scfoundation-model`.
 make-gene-emb-scfoundation = "bash modules/godata/gene_embedding/run.sh --output_dir data/embeddings --kind scfoundation"
 
-[feature.scfoundation-gpu.system-requirements]
+[feature.scfoundation.system-requirements]
 cuda = "12"
+
+[feature.scfoundation-gpu.pypi-dependencies]
+torch = "==2.0.1"
+torchvision = "==0.15.2"   # scFoundation encoder (modules/encoders.py) imports it
+
+[feature.scfoundation-blackwell.pypi-dependencies]
+torch = { version = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" }
+torchvision = { version = "==0.22.1", index = "https://download.pytorch.org/whl/cu128" }
 
 # r: Bioconductor env to run the paper's R scripts verbatim (mean, lpm, ...).
 # Reads .h5ad via picklerick (native Rust->R, no basilisk/Python); zellkonverter
@@ -393,7 +401,8 @@ r = { features = ["r"] }
 gears = { features = ["gears"] }
 gears-gpu = { features = ["gears-gpu"] }
 cpa-gpu = { features = ["cpa-gpu"] }
-scfoundation-gpu = { features = ["scfoundation-gpu"] }
+scfoundation-gpu = { features = ["scfoundation", "scfoundation-gpu"] }
+scfoundation-blackwell = { features = ["scfoundation", "scfoundation-blackwell"] }
 scgpt-gpu = { features = ["scgpt-gpu"] }
 geneformer-gpu = { features = ["geneformer", "geneformer-gpu"] }
 geneformer-blackwell = { features = ["geneformer", "geneformer-blackwell"] }

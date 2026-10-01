@@ -22,7 +22,8 @@
 #   --split.set2conditions PATH {"train","val","test"} from `split` (per seed)
 # Env knobs:
 #   OMNI_SCFOUNDATION_CKPT  path to the scFoundation models.ckpt (default data/scfoundation/models.ckpt)
-#   OMNI_SCF_EPOCHS         fine-tune epochs (default 15, the paper's value)
+#   OMNI_SCF_EPOCHS         fine-tune epochs (default 5 = the paper's run, run_perturbation_benchmark.R:74;
+#                           the script's own default 15 is NOT what the paper ran)
 #   OMNI_GEARS_CACHE        dir with a gene2go *.pkl (else data/godata side-load)
 # Output:
 #   {dataset}.predictions.json.gz   {condition: [per-gene scFoundation prediction]}
@@ -43,9 +44,10 @@ VENDORED="$REPO/vendor/paper/benchmark/src/run_scfoundation.py"
 FORK="$REPO/vendor/scfoundation/scfoundation_gears"
 MODEL="$REPO/vendor/scfoundation/model"
 CKPT="${OMNI_SCFOUNDATION_CKPT:-}"   # default resolved after --output_dir (see DATA_ROOT)
-EPOCHS="${OMNI_SCF_EPOCHS:-15}"
-BATCH="${OMNI_SCF_BATCH:-6}"   # paper default 6; lower it (e.g. 1) to fit a small GPU
-# perf NOTE (measured, don't re-chase): the ~2s/it (=> ~39h for 15 epochs, matching the
+EPOCHS="${OMNI_SCF_EPOCHS:-5}"
+BATCH="${OMNI_SCF_BATCH:-6}"   # paper 6 (run_scfoundation.py:63); >=2 (1 breaks BatchNorm)
+# perf NOTE (measured on a 24GB L4, don't re-chase): the ~2s/it (=> ~13h for the paper's 5
+# epochs, ~39h for 15, inside the
 # paper's 5-day cap) is the MODEL compute (frozen scFoundation encoder forward + the GEARS
 # GNN per batch), NOT the dataloader. Measured DataLoader-only on the scF tiny fixture
 # (scratch/measure_workers): num_workers=0 = 0.4 ms/it; num_workers 2/4/8 are SLOWER (IPC

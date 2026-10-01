@@ -284,7 +284,7 @@ def test_cpa_entrypoint():
 def _scf_env_bin() -> Path | None:
     if (ov := os.environ.get("OMNI_SCFOUNDATION_ENV_BIN")) and (Path(ov) / "python").exists():
         return Path(ov)
-    return _env_bin("scfoundation-gpu")
+    return _env_bin("scfoundation-blackwell") or _env_bin("scfoundation-gpu")
 
 
 def _scf_ckpt() -> Path | None:

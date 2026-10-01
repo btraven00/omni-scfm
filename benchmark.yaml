@@ -39,6 +39,10 @@ software_environments:
     name: scFoundation GPU env (paper-pinned)
     description: forked gears 0.0.2 (vendored) + maeautobin encoder; torch 2.0.1 cu117 + local-attention
     conda: envs/scfoundation-gpu.yml
+  scfoundation-blackwell:
+    name: scFoundation env for Blackwell GPUs (paper pins, torch bumped)
+    description: as scfoundation-gpu but torch 2.7.1 / torchvision 0.22.1 cu128 (sm_120); torch 2.0.1 has no Blackwell kernels
+    conda: envs/scfoundation-blackwell.yml
   scgpt-gpu:
     name: scGPT GPU env (paper-pinned, bit-faithful flashattn_env)
     description: scgpt 0.2.1 + flash-attn 1.0.4 + cell-gears 0.0.2; torch 1.13.1 cu117 (use_fast_transformer=True)
@@ -322,26 +326,24 @@ stages:
       # norman_from_scfoundation only (its raison d'être) — `exclude: ["scfoundation"]` on
       # the adamson + norman dataset modules (same inverse-scoping as cpa). Needs the
       # side-loaded checkpoint (OMNI_SCFOUNDATION_CKPT / fetch-scfoundation-model).
-      # --- TEMPORARILY DISABLED (focusing the run on scgpt) — re-enable this block ---
-      # - id: scfoundation
-      #   name: "scFoundation (foundation model; run_scfoundation.py, vendored fork 0.0.2)"
-      #   software_environment: "scfoundation-gpu"
-      #   repository:
-      #     url: "."
-      #     commit: HEAD
-      #     entrypoint: scfoundation
-      #   # GPU knobs surfaced explicitly (passed to run.sh as --batch_size/--epochs).
-      #   # batch_size: the PAPER USES 6, but on the real norman_from_scfoundation substrate
-      #   # that needs ~23GB and OOMs a 24GB L4 (~22GB usable) — model + GNN graphs are ~18GB
-      #   # live and one encoder layer's forward needs ~5GB; no allocator/no_grad trick bridges
-      #   # a real need. So we run batch_size=4 here (the encoder activation + per-cell state
-      #   # scale with batch). DEVIATION FROM PAPER: batch_size feeds BatchNorm in the GEARS
-      #   # head, so 4 != 6 numerically (small, documented). Faithful batch=6 needs a >24GB GPU
-      #   # (A100 40GB+). batch_size=1 breaks BatchNorm entirely, so keep it >=2. epochs: paper 15.
-      #   parameters:
-      #     - batch_size: [4]
-      #       epochs: [15]
-      # --- end TEMPORARILY DISABLED scfoundation ---
+      - id: scfoundation
+        name: "scFoundation (foundation model; run_scfoundation.py, vendored fork 0.0.2)"
+        # scfoundation-blackwell for the RTX PRO 6000 box (torch 2.0.1 has no sm_120
+        # kernels); "scfoundation-gpu" is the paper-faithful torch 2.0.1.
+        software_environment: "scfoundation-blackwell"
+        repository:
+          url: "."
+          commit: HEAD
+          entrypoint: scfoundation
+        # GPU knobs surfaced explicitly (passed to run.sh as --batch_size/--epochs). Both
+        # are the PAPER's values: batch_size=6 is hardcoded in run_scfoundation.py:63, and
+        # the paper's submission overrides epochs to 5 (run_perturbation_benchmark.R:74 —
+        # NOT the script's default 15). batch 6 needs ~23GB on norman_from_scfoundation
+        # (OOMs a 24GB L4; fine on the 96GB box). On a 24GB GPU drop to batch_size=4 — a
+        # documented deviation (it feeds BatchNorm in the GEARS head); never 1 (breaks BN).
+        parameters:
+          - batch_size: [6]
+            epochs: [5]
       # scGPT (transformer foundation model; verbatim run_scgpt.py + the side-loaded
       # whole-human checkpoint). FIRST CUT scoped to norman_from_scfoundation only
       # (`exclude: ["scgpt"]` on the adamson + norman dataset modules, same inverse-
