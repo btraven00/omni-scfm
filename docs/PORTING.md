@@ -27,6 +27,14 @@ paper-setting run still pending · **todo** = not ported.
 
 ## Open issues (not per-method)
 
+- **scFoundation's per-epoch train-set evaluation only prints, but costs ~40% of the run
+  and consumes RNG.** After every epoch the forked GEARS evaluates the whole train set
+  (68k cells on norman_from_scfoundation; >5 h per pass on the RTX PRO 6000) and then val.
+  The train-set metrics are only printed (and optionally logged to wandb); best-model
+  selection uses val only (`gears.py:410–436`). Dropping it would not change model
+  selection, but the train loader is `shuffle=True` on torch's global RNG, so the extra
+  pass shifts every later epoch's shuffle order: not bit-identical. Kept as in the paper;
+  details in `modules/methods/scfoundation/run.sh`.
 - **Replogle K562 / RPE1 as benchmark datasets:** the paper runs every method on them
   (its longest jobs, e.g. Geneformer ≈ 11.5 h each); here they are only side-loaded
   references for `transfer` / the lpm embeddings. Scope decision.

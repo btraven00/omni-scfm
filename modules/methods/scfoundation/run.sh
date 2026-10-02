@@ -25,6 +25,14 @@
 #   OMNI_SCF_EPOCHS         fine-tune epochs (default 5 = the paper's run, run_perturbation_benchmark.R:74;
 #                           the script's own default 15 is NOT what the paper ran)
 #   OMNI_GEARS_CACHE        dir with a gene2go *.pkl (else data/godata side-load)
+#   WANDB_API_KEY / WANDB_MODE  OPTIONAL Weights & Biases tracking via the fork's own hooks
+#                           (per-step training loss, per-epoch train/val MSE, test metrics).
+#                           Off unless one is set (WANDB_MODE=offline logs to local files, no
+#                           key, nothing sent). Project OMNI_WANDB_PROJECT (default omni-scfm),
+#                           run name <dataset>-seed<seed>-scfoundation. Checked: wandb.init/log
+#                           leave the python/numpy/torch(CPU+CUDA) RNG states untouched, so
+#                           results are identical with or without it. If wandb isn't importable
+#                           the run continues without it (a warning, never a failure).
 # Output:
 #   {dataset}.predictions.json.gz   {condition: [per-gene scFoundation prediction]}
 #   {dataset}.gene_names.json
@@ -56,6 +64,19 @@ BATCH="${OMNI_SCF_BATCH:-6}"   # paper 6 (run_scfoundation.py:63); >=2 (1 breaks
 # levers (all change results or need the model, so out of scope for a faithful repro):
 # bigger batch_size, or precomputing the frozen encoder embeddings instead of recomputing
 # them every epoch.
+#
+# COST NOTE — the per-epoch TRAIN-SET evaluation ONLY PRINTS (kept, for faithfulness):
+# after every epoch the forked GEARS (scfoundation_gears/gears/gears.py:410) runs
+# evaluate() over the WHOLE train loader (68,397 cells on norman_from_scfoundation) and
+# then over val. The train-set result (train_res / train_metrics) is only printed and
+# optionally sent to wandb (gears.py:412-432); best-model selection uses val_metrics ONLY
+# (gears.py:436). Measured on the RTX PRO 6000 (2026-10-01): >5 h per pass, on top of
+# ~8 h of training per epoch — so it is ~40% of the paper's ~70 h/seed.
+# It is NOT free to drop: the train loader is shuffle=True (pertdata.py:258) with no own
+# generator, so iterating it in evaluate() draws from torch's GLOBAL RNG and shifts the
+# shuffle order of every later epoch. Skipping it would leave model selection untouched
+# but change the training trajectory (statistically equivalent, not bit-identical).
+# Faithful speedup would need the RNG state saved/restored around that call; not done.
 
 output_dir="" ; data_h5ad="" ; data_go="" ; split="" ; seed="" ; gene2go=""
 while [[ $# -gt 0 ]]; do
@@ -141,6 +162,18 @@ sed -e "s#[^\"']*scfoundation_gears/#$FORK/#g" \
     -e "s#^batch_size=6#batch_size=$BATCH#" \
     -e "s#^test_batch_size=6#test_batch_size=$BATCH#" \
     "$VENDORED" > "$patched"
+# Optional W&B: switch on the fork's built-in hooks (GEARS(weight_bias_track=...)).
+if [[ -n "${WANDB_API_KEY:-}" || -n "${WANDB_MODE:-}" ]]; then
+  if python -c 'import wandb' 2>/dev/null; then
+    run_name="$ds-seed$seed-scfoundation"
+    sed -i "s#^gears_model = GEARS(pert_data, device = 'cuda')#gears_model = GEARS(pert_data, device = 'cuda', weight_bias_track = True, proj_name = '${OMNI_WANDB_PROJECT:-omni-scfm}', exp_name = '$run_name')#" "$patched"
+    grep -q "weight_bias_track = True" "$patched" \
+      && echo "scfoundation: wandb on (project ${OMNI_WANDB_PROJECT:-omni-scfm}, run $run_name, mode ${WANDB_MODE:-online})" \
+      || echo "scfoundation: WARNING wandb requested but the GEARS(...) call was not found — running without it" >&2
+  else
+    echo "scfoundation: WARNING wandb requested but not importable in this env — running without it" >&2
+  fi
+fi
 export OMNI_VENDORED_SCRIPT="$patched"
 
 ( cd "$wd" && python "$WRAPPER" \

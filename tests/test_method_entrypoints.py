@@ -712,3 +712,10 @@ def test_scbert_entrypoint():
     with gzip.open(out / f"{name}.predictions.json.gz", "rt") as fh:
         d = json.load(fh)
     assert d and all(len(v) == len(names) for v in d.values())
+
+
+def test_scfoundation_wandb_patch_target_exists():
+    """run.sh turns on the fork's W&B hooks (when WANDB_API_KEY / WANDB_MODE is set) by
+    rewriting this exact GEARS(...) line; pin that it is still there."""
+    src = (REPO / "vendor" / "paper" / "benchmark" / "src" / "run_scfoundation.py").read_text()
+    assert "\ngears_model = GEARS(pert_data, device = 'cuda')\n" in src

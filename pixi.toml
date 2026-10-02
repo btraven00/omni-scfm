@@ -129,6 +129,7 @@ python = "3.10.*"
 pip = "*"
 
 [feature.scfoundation.pypi-dependencies]
+wandb = "==0.30.0"         # OPTIONAL run tracking (off unless WANDB_API_KEY / WANDB_MODE set; see run.sh)
 torch-geometric = "==2.5.3"
 cell-gears = "==0.1.2"
 einops = "==0.8.0"
