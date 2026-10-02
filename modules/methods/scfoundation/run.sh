@@ -38,6 +38,10 @@
 #   {dataset}.gene_names.json
 set -euo pipefail
 export PYTHONNOUSERSITE=1
+# A segfault in a ~60 h run otherwise leaves only "Segmentation fault" in the log (seed 1 on
+# the RTX PRO 6000 died that way on 2026-10-01, 6 h into epoch 1's train-set evaluate()).
+# faulthandler dumps the Python stack of every thread on SIGSEGV/SIGABRT; no other effect.
+export PYTHONFAULTHANDLER=1
 # Reduce CUDA fragmentation so batch_size=6 fits a 24GB GPU: on the real substrate the
 # GNN graphs (G_coexpress over 19264 genes + G_go) pin ~15GB, and at batch=6 the encoder
 # forward needs ~4GB more — which OOMs only because ~4GB is lost to allocator fragmentation
