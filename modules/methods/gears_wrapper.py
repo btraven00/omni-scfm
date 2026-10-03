@@ -44,6 +44,22 @@ import pandas as pd
 if not hasattr(pd.Series, "nonzero"):
     pd.Series.nonzero = lambda self: (np.asarray(self).nonzero())
 
+# Opt-in: OMNI_TORCH_MHA_FASTPATH=0 disables PyTorch's native transformer-encoder fast path
+# (torch._transformer_encoder_layer_fwd, taken only in eval mode without grad). Under torch
+# 2.7.1 on the RTX PRO 6000 it segfaults data-dependently inside scFoundation's encoder
+# during GEARS evaluate() (reproduced: fast path on -> SIGSEGV after ~1000 batches). Off,
+# eval runs the same composite path training uses; outputs differ at float rounding only.
+# torch < 2.1 has no switch; there the fast path stays on, as in the paper (torch 2.0.1 ran it
+# without crashing), so only the newer-torch envs deviate.
+if os.environ.get("OMNI_TORCH_MHA_FASTPATH") == "0":
+    import torch
+    mha = getattr(torch.backends, "mha", None)
+    if mha is not None and hasattr(mha, "set_fastpath_enabled"):
+        mha.set_fastpath_enabled(False)
+        print(f"gears_wrapper: torch {torch.__version__} MHA fast path disabled (OMNI_TORCH_MHA_FASTPATH=0)", flush=True)
+    else:
+        print(f"gears_wrapper: torch {torch.__version__} has no MHA fast-path switch; leaving it on (paper behaviour)", flush=True)
+
 script = os.environ.get("OMNI_VENDORED_SCRIPT")
 if not script:
     raise SystemExit("OMNI_VENDORED_SCRIPT is not set")

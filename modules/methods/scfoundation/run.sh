@@ -42,6 +42,14 @@ export PYTHONNOUSERSITE=1
 # the RTX PRO 6000 died that way on 2026-10-01, 6 h into epoch 1's train-set evaluate()).
 # faulthandler dumps the Python stack of every thread on SIGSEGV/SIGABRT; no other effect.
 export PYTHONFAULTHANDLER=1
+# PyTorch's native transformer fast path (torch._transformer_encoder_layer_fwd, used only in
+# eval mode without grad) segfaults inside the encoder during GEARS evaluate() under torch
+# 2.7.1 on the RTX PRO 6000: both seed-1 runs died there (2026-10-01/02, stack via
+# faulthandler) and a standalone eval pass reproduces it (~1000 batches). gears_wrapper.py
+# turns it off when this is 0 (no-op on torch < 2.1, which has no switch and, as in the
+# paper's torch 2.0.1, no crash). Off = the composite path training already uses; float-
+# rounding-level differences only. Set OMNI_TORCH_MHA_FASTPATH=1 to keep it on.
+export OMNI_TORCH_MHA_FASTPATH="${OMNI_TORCH_MHA_FASTPATH:-0}"
 # Reduce CUDA fragmentation so batch_size=6 fits a 24GB GPU: on the real substrate the
 # GNN graphs (G_coexpress over 19264 genes + G_go) pin ~15GB, and at batch=6 the encoder
 # forward needs ~4GB more — which OOMs only because ~4GB is lost to allocator fragmentation
