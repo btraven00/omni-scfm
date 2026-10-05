@@ -17,8 +17,8 @@
 # The md5 (when given) is checked here as well, not only via hapiq's --hash: the hash is
 # the identity, the host is a parameter. hapiq's own witness is kept as <out>.hapiq.json.
 # file:// URLs are copied as-is (pre-downloaded or browser-fetched archives).
-# Needs hapiq >= 0.1.0 (`download url`; `fetch` was removed): from PATH, else the
-# omnidata pixi env (`pixi install -e omnidata`).
+# Needs hapiq >= 0.1.0 (`download url`; `fetch` was removed): OMNI_HAPIQ, else the
+# omnidata pixi env (`pixi install -e omnidata`, pinned), else PATH; the version is checked.
 set -euo pipefail
 
 url="$1"; out="$2"; md5="${3:-}"
@@ -27,9 +27,15 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [[ $url == file://* ]]; then
   cp "${url#file://}" "$out"
 else
-  hq="$(command -v hapiq || true)"
+  # The repo's pinned hapiq first (omnidata env), PATH only as a fallback: a machine-wide
+  # hapiq can be an old dev build whose `download url` exits 0 without writing a file.
+  hq="${OMNI_HAPIQ:-}"
   [[ -z $hq && -x "$REPO/.pixi/envs/omnidata/bin/hapiq" ]] && hq="$REPO/.pixi/envs/omnidata/bin/hapiq"
-  [[ -n $hq ]] || { echo "hapiq_get: no hapiq on PATH or in the omnidata env (pixi install -e omnidata)" >&2; exit 3; }
+  [[ -z $hq ]] && hq="$(command -v hapiq || true)"
+  [[ -n $hq ]] || { echo "hapiq_get: no hapiq (pixi install -e omnidata, or set OMNI_HAPIQ)" >&2; exit 3; }
+  ver="$("$hq" version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+  [[ -n $ver && "$(printf '%s\n0.1.0\n' "$ver" | sort -V | head -1)" == 0.1.0 ]] || {
+    echo "hapiq_get: $hq is not hapiq >= 0.1.0 ('$("$hq" version 2>&1 | tail -1)')" >&2; exit 3; }
 
   tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
   {
