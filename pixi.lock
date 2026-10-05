@@ -1667,7 +1667,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_6.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.5.20-hbd8a1cb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tzdata-2025c-hc9c84f9_1.conda
-      - conda: https://prefix.dev/almost-conductor/linux-64/hapiq-0.0.0.dev7858235-h8706b04_0.conda
+      - conda: https://prefix.dev/almost-conductor/linux-64/hapiq-0.1.0-h686f8a5_0.conda
   omnipath:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
@@ -12407,12 +12407,13 @@ packages:
   license: LicenseRef-NVIDIA-End-User-License-Agreement
   size: 17050
   timestamp: 1778186955425
-- conda: https://prefix.dev/almost-conductor/linux-64/hapiq-0.0.0.dev7858235-h8706b04_0.conda
-  sha256: 33f4425daca6cd7a5551c179063b6efde1c0edb3ac86cb17e853b4394531b015
-  md5: 26c4aba6ff569fd5e30f39276f28beea
+- conda: https://prefix.dev/almost-conductor/linux-64/hapiq-0.1.0-h686f8a5_0.conda
+  sha256: 9cc2becee19d6449dd4d53a797872bfb8ee724c8550a578fb5ef22618e611626
+  md5: 88255191bb506afff80faa36d370d0c5
   license: GPL-3.0-only
-  size: 4938644
-  timestamp: 1777983663398
+  run_exports: {}
+  size: 5605420
+  timestamp: 1791211651698
 - conda: https://prefix.dev/edge/linux-64/r-picklerick-0.1.0.post78-hb0f4dca_0.conda
   sha256: 66163ccb9f860a444431adbe324089a84c6109b10b2cdc4091328dabf7d87762
   md5: 61a997b5052bd3a81d06e55d8f30c40e

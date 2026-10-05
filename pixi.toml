@@ -21,7 +21,7 @@ openpyxl = "*"  # read the paper's source_data/*.xlsx for the reproduction check
 
 # omnidata: the data-download env (hapiq from the almost-conductor channel)
 [feature.omnidata.dependencies]
-hapiq = "*"
+hapiq = "==0.1.0"   # first tagged release (cache serve, versioned witnesses)
 bash = "*"
 
 [feature.omnidata.tasks]

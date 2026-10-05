@@ -9,7 +9,7 @@
 # Shared files ~5.7GB (all_tokens 3.0GB + protein_embeddings tar 2.7GB). Idempotent:
 # a file already present with the right md5 is not re-downloaded.
 #
-# Downloads go through hapiq (`hapiq fetch --hash`, as omni-data does), so they land in
+# Downloads go through hapiq (`hapiq download url --hash`, as omni-data does; `hapiq fetch` was removed in hapiq 0.1.0), so they land in
 # hapiq's blob cache and are md5-verified. The hash is the identity, the host is a
 # parameter: OMNI_UCE_MIRROR=<base URL> fetches <base>/<filename> instead of figshare.
 #
@@ -57,7 +57,7 @@ for f in "${files[@]}"; do
   [[ -n $MIRROR ]] && url="${MIRROR%/}/$name"
   echo "fetching $name <- $url"
   tmp="$mf/.fetch-$id"; rm -rf "$tmp"; mkdir -p "$tmp"
-  hapiq --config "$hq_cfg" fetch "$url" --out "$tmp" --hash "md5:$md5" --timeout 7200 -y
+  hapiq --config "$hq_cfg" download url "$url" --out "$tmp" --hash "md5:$md5" --timeout 7200 -y
   got_file=$(find "$tmp" -type f -not -name 'hapiq.json' | head -1)
   # belt and braces: hapiq --hash had a path bug once (hapiq-figshare notes); re-check here
   [[ -n $got_file && $(md5sum "$got_file" | cut -d' ' -f1) == "$md5" ]] || {
