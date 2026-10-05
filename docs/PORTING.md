@@ -22,7 +22,7 @@ paper-setting run still pending · **todo** = not ported.
 | **uce**, **uce33** | yes | uce-gpu / uce-blackwell | done | adamson matches paper per perturbation (\|Δ\| < 5e-4); paper's single "UCE*" can't be attributed to 4 vs 33 layers (they differ ≤ 0.005); in omni-scfm-results |
 | scfoundation | yes | scfoundation-gpu / scfoundation-blackwell | ported | paper settings now: batch 6 + **epochs 5** (the paper's submission, not the script default 15); one job fills ~94 GB, 11,399 steps/epoch at ~2.5 s/step ≈ 39 h/seed (paper: 70 h), so seeds run one after the other; norman_from_scfoundation seeds 1,2 running on the Blackwell box |
 | scgpt | yes | scgpt-gpu | ported | flash-attn 1.0.4 / torch 1.13 cu117: no Blackwell support → needs a pre-Blackwell GPU |
-| scbert | yes | – | todo | paper: RTX 3090, 4–11 h/job |
+| scbert | yes | scbert-gpu / scbert-blackwell | done | adamson seed 1 (paper env, roland L4, 100 epochs, 13 h) matches the paper per perturbation to float32 rounding (\|Δ pearson_delta\| ≤ 2e-6, all 24 paper rows), which also vouches for the re-uploaded checkpoint; norman_from_scfoundation + seed 2 still to run (box) |
 | lpm_scgptGeneEmb, lpm_scFoundationGeneEmb | – | r | done | adamson matches paper per perturbation (\|Δ\| < 3e-6, Panel C); embeddings are CPU weight lookups (`make-gene-emb-*`), no GPU needed |
 
 ## Open issues (not per-method)
