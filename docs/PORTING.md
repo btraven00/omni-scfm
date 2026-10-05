@@ -14,7 +14,7 @@ paper-setting run still pending · **todo** = not ported.
 | lpm_selftrained | – | r | done | on the dashboard; all-NA on double-pert datasets (paper limitation) |
 | lpm_randomPertEmb, lpm_randomGeneEmb | – | r | done | |
 | lpm_gearsPertEmb, lpm_k562PertEmb | – | r | done | embeddings side-loaded (`make-pert-emb-*`) |
-| lpm_rpe1PertEmb | – | r | ported | its Replogle RPE1 input has no pinned md5 yet (not in `fetch-all`) |
+| lpm_rpe1PertEmb | – | r | done | adamson seeds 1–2 match paper per perturbation (\|Δ\| ≤ 1.3e-5, Panel C); RPE1 pinned 2026-10-05 (`fetch-replogle-rpe1`, in `fetch-all`); embedding tracked in `data/embeddings/` |
 | transfer | – | r | ported | Replogle K562 side-load |
 | gears | yes | gears-gpu | done | on the dashboard |
 | cpa | yes | cpa-gpu | done | norman_from_scfoundation only; on the dashboard |
