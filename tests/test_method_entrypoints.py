@@ -719,3 +719,21 @@ def test_scfoundation_wandb_patch_target_exists():
     rewriting this exact GEARS(...) line; pin that it is still there."""
     src = (REPO / "vendor" / "paper" / "benchmark" / "src" / "run_scfoundation.py").read_text()
     assert "\ngears_model = GEARS(pert_data, device = 'cuda')\n" in src
+
+
+@pytest.mark.parametrize("trace_only", [False, True])
+def test_scfoundation_skip_train_eval_patch_applies(tmp_path, trace_only):
+    """skip_train_eval.py patches a copy of the fork's gears.py (OMNI_SCF_SKIP_TRAIN_EVAL /
+    OMNI_SCF_RNG_TRACE); its anchors must still be there and the result must compile."""
+    import py_compile
+    import shutil
+    src = REPO / "vendor" / "scfoundation" / "scfoundation_gears" / "gears" / "gears.py"
+    dst = tmp_path / "gears.py"
+    shutil.copy(src, dst)
+    cmd = ["python3", str(REPO / "modules" / "methods" / "scfoundation" / "skip_train_eval.py"), str(dst)]
+    r = subprocess.run(cmd + (["--trace-only"] if trace_only else []), capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    out = dst.read_text()
+    assert "RNG-TRACE" in out
+    assert ("next(iter(train_loader))" in out) != trace_only
+    py_compile.compile(str(dst), doraise=True)

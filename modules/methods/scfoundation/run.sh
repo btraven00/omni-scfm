@@ -25,6 +25,10 @@
 #   OMNI_SCF_EPOCHS         fine-tune epochs (default 5 = the paper's run, run_perturbation_benchmark.R:74;
 #                           the script's own default 15 is NOT what the paper ran)
 #   OMNI_GEARS_CACHE        dir with a gene2go *.pkl (else data/godata side-load)
+#   OMNI_SCF_SKIP_TRAIN_EVAL=1  skip the per-epoch TRAIN-SET evaluate() (print-only; ~40% of
+#                           the run) while making the same RNG draws -> same training
+#                           trajectory; train metrics print as nan. Default 0 (as the paper).
+#   OMNI_SCF_RNG_TRACE=1    print a CPU/CUDA RNG-state hash after that point every epoch.
 #   WANDB_API_KEY / WANDB_MODE  OPTIONAL Weights & Biases tracking via the fork's own hooks
 #                           (per-step training loss, per-epoch train/val MSE, test metrics).
 #                           Off unless one is set (WANDB_MODE=offline logs to local files, no
@@ -167,6 +171,14 @@ cfg="config"; rid="result"
 cp "$split" "$wd/results/$cfg"
 
 # Patch ONLY the three hardcoded cluster paths -> our vendored dirs + side-loaded ckpt.
+# Opt-in, bit-identical skip of the per-epoch train-set evaluation (print-only, ~40% of the
+# run; see skip_train_eval.py and the COST NOTE above): patch a per-job COPY of the fork.
+# OMNI_SCF_RNG_TRACE=1 alone keeps the pass but traces the RNG (the baseline for the proof).
+if [[ ${OMNI_SCF_SKIP_TRAIN_EVAL:-0} == 1 || ${OMNI_SCF_RNG_TRACE:-0} == 1 ]]; then
+  cp -r "$FORK" "$wd/scfoundation_gears"; FORK="$wd/scfoundation_gears"
+  python "$REPO/modules/methods/scfoundation/skip_train_eval.py" "$FORK/gears/gears.py" \
+    $([[ ${OMNI_SCF_SKIP_TRAIN_EVAL:-0} == 1 ]] || echo --trace-only)
+fi
 patched="$wd/run_scfoundation.py"
 sed -e "s#[^\"']*scfoundation_gears/#$FORK/#g" \
     -e "s#[^\"']*scfoundation/model/#$MODEL/#g" \
