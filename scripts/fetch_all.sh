@@ -6,7 +6,6 @@
 #   pixi run fetch-all                       # everything
 #   OMNI_FETCH_SKIP="uce scfoundation" pixi run fetch-all
 #
-# Not included: make-pert-emb-rpe1 (its Replogle RPE1 input has no pinned md5 yet).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 px() { env -u PIXI_PROJECT_MANIFEST pixi run --manifest-path "$PWD/pixi.toml" "$@"; }
@@ -15,8 +14,10 @@ steps=(
   "godata         default   fetch-godata"
   "go-essential   default   fetch-go-essential"
   "replogle       default   fetch-replogle"
+  "replogle-rpe1  default   fetch-replogle-rpe1"
   "pert-emb-gears r         make-pert-emb-gears"
   "pert-emb-k562  r         make-pert-emb-k562"
+  "pert-emb-rpe1  r         make-pert-emb-rpe1"
   "scfoundation   default   fetch-scfoundation-model"
   "scgpt          hf        fetch-scgpt-model-hf"
   "gene-emb-scf   scfoundation-gpu make-gene-emb-scfoundation"

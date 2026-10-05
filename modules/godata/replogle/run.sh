@@ -14,21 +14,13 @@
 #   * the shipped GEARS h5ad predates the root `encoding-type` attr picklerick needs
 #   * sparse indices must be sorted or R's Matrix rejects X on read
 #
-# Usage: pixi run fetch-replogle              (K562; the paper's default reference)
-#        OMNI_REPLOGLE_NAME=replogle_rpe1_essential \
-#        OMNI_REPLOGLE_URL=https://dataverse.harvard.edu/api/access/datafile/7458694 \
-#          pixi run fetch-replogle            (RPE1)
+# Usage: pixi run fetch-replogle        (K562; the paper's default reference)
+#        pixi run fetch-replogle-rpe1   (RPE1; = --name replogle_rpe1_essential)
 # Output: <output_dir>/<name>.h5ad
 set -euo pipefail
 
 NAME="${OMNI_REPLOGLE_NAME:-replogle_k562_essential}"
-URL="${OMNI_REPLOGLE_URL:-https://dataverse.harvard.edu/api/access/datafile/7458695}"
-# Pinned 2026-08-14 from a browser download (Dataverse WAF-challenges scripted clients —
-# HTTP 202 + a JS proof-of-work; see AGENTS.md "Mirroring"). Mirror the archive to
-# btraven/omni-scfm-data and point URL at the HF resolve URL: this md5 is what makes the
-# mirror trustworthy, so keep it pinned.
-MD5="${OMNI_REPLOGLE_MD5:-84eed779531de88f83d3eb16a773a261}"
-
+URL="${OMNI_REPLOGLE_URL:-}"
 output_dir=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -38,6 +30,21 @@ while [[ $# -gt 0 ]]; do
     *)            shift ;;
   esac
 done
+# Per-dataset defaults = the Dataverse datafiles cell-gears 0.1.2 itself downloads
+# (gears/pertdata.py:160-165). md5 of the ARCHIVE:
+#   K562  7458695: browser download 2026-08-14, matched by hapiq on roland 2026-10-05
+#   RPE1  7458694: hapiq on roland 2026-10-05 (665,914,266 B)
+# OMNI_REPLOGLE_MD5 overrides; set it EMPTY (OMNI_REPLOGLE_MD5=) to skip the check.
+case "$NAME" in
+  replogle_k562_essential) def_url=https://dataverse.harvard.edu/api/access/datafile/7458695
+                           def_md5=84eed779531de88f83d3eb16a773a261 ;;
+  replogle_rpe1_essential) def_url=https://dataverse.harvard.edu/api/access/datafile/7458694
+                           def_md5=169370a8da6093470f122172ab30f7c5 ;;
+  *)                       def_url=""; def_md5="" ;;
+esac
+URL="${URL:-$def_url}"
+MD5="${OMNI_REPLOGLE_MD5-$def_md5}"
+[[ -n $URL ]] || { echo "replogle/run.sh: no URL for '$NAME' (set OMNI_REPLOGLE_URL)" >&2; exit 2; }
 [[ -n $output_dir ]] || { echo "replogle/run.sh: need --output_dir" >&2; exit 2; }
 mkdir -p "$output_dir"
 out="$output_dir/$NAME.h5ad"

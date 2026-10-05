@@ -49,10 +49,12 @@ else
   "$hq" --config "$tmp/hapiq.toml" download url "$url" --out "$tmp/out" \
     ${md5:+--hash "md5:$md5"} --timeout 7200 -y
   # hapiq names the file itself (Content-Disposition or URL basename, version-dependent):
-  # take the one payload file, whatever it is called.
-  mapfile -t got < <(find "$tmp/out" -type f ! -name hapiq.json)
+  # take the one payload file, whatever it is called. It is a hardlink into the cache when
+  # $tmp and the cache share a filesystem, else a SYMLINK into it (hapiq's link fallback,
+  # e.g. roland: /tmp on sda, ~/.cache on sdb) -> copy the bytes out, never the link.
+  mapfile -t got < <(find "$tmp/out" \( -type f -o -type l \) ! -name hapiq.json)
   [[ ${#got[@]} -eq 1 ]] || { echo "hapiq_get: expected 1 file from $url, got ${#got[@]}" >&2; exit 1; }
-  mv "${got[0]}" "$out"
+  if [[ -L ${got[0]} ]]; then cp -L "${got[0]}" "$out"; else mv "${got[0]}" "$out"; fi
   [[ -f "$tmp/out/hapiq.json" ]] && mv "$tmp/out/hapiq.json" "$out.hapiq.json"
 fi
 

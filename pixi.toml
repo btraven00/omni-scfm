@@ -477,6 +477,7 @@ fetch-go-essential = "bash modules/godata/go_essential/run.sh --output_dir data/
 # data/replogle/ — the second dataset the `transfer` method regresses against.
 # See modules/godata/replogle/run.sh.
 fetch-replogle = "bash modules/godata/replogle/run.sh --output_dir data/replogle"
+fetch-replogle-rpe1 = "bash modules/godata/replogle/run.sh --output_dir data/replogle --name replogle_rpe1_essential"
 # Side-load the scFoundation checkpoint (~GB) into data/scfoundation/ from a URL you
 # provide: `OMNI_SCFOUNDATION_URL='https://…|file:///…' pixi run fetch-scfoundation-model`.
 fetch-scfoundation-model = "bash modules/godata/scfoundation_model/run.sh --output_dir data/scfoundation"
