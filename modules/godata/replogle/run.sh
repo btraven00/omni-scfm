@@ -42,38 +42,28 @@ done
 mkdir -p "$output_dir"
 out="$output_dir/$NAME.h5ad"
 
-python - "$URL" "$out" "$MD5" "$NAME" <<'PY'
-import hashlib, os, shutil, sys, tempfile, urllib.request, zipfile
+# The ~1GB archive comes through hapiq's cache (../hapiq_get.sh: md5-checked when pinned,
+# OMNI_HAPIQ_PEERS cache servers asked first); a file:// URL is copied as-is.
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+bash "$(dirname "${BASH_SOURCE[0]}")/../hapiq_get.sh" "$URL" "$tmp/download" "$MD5"
+[[ -s "$tmp/download" ]] || { echo "replogle: empty download from $URL (Dataverse bot challenge?)" >&2; exit 1; }
+
+python - "$tmp" "$out" "$MD5" <<'PY'
+import hashlib, shutil, sys, zipfile
 from pathlib import Path
 
 import anndata as ad
 from scipy.sparse import issparse
 
-url, out, want, name = sys.argv[1:5]
-tmp = Path(tempfile.mkdtemp())
-
-# file:// — a local mirror (zip or h5ad) is used as-is; the archive is ~1GB.
-if url.startswith("file://"):
-    src = Path(url[len("file://"):])
-else:
-    src = tmp / "download"
-    # Dataverse 403s the default python-urllib User-Agent (see godata/gene2go).
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (omni-scfm replogle fetch)"})
-    with urllib.request.urlopen(req) as r, open(src, "wb") as f:
-        shutil.copyfileobj(r, f)
-    if os.path.getsize(src) == 0:
-        sys.exit(f"replogle: empty download from {url} (Dataverse bot challenge? retry, "
-                 f"or fetch by hand and pass OMNI_REPLOGLE_URL=file:///path/to/archive.zip)")
-
+tmp, out, want = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+src = tmp / "download"
 got = hashlib.md5(src.read_bytes()).hexdigest()
-if want and got != want:
-    sys.exit(f"replogle md5 mismatch: got {got}, want {want}")
 
 if zipfile.is_zipfile(src):
     with zipfile.ZipFile(src) as zf:
         members = [m for m in zf.namelist() if m.endswith("perturb_processed.h5ad")]
         if not members:
-            sys.exit(f"replogle: no perturb_processed.h5ad inside {url}")
+            sys.exit("replogle: no perturb_processed.h5ad inside the archive")
         h5ad = tmp / "raw.h5ad"
         with zf.open(members[0]) as s, open(h5ad, "wb") as d:
             shutil.copyfileobj(s, d)
@@ -85,7 +75,6 @@ for mat in (adata.X, *adata.layers.values()):   # R's Matrix needs sorted indice
     if issparse(mat) and hasattr(mat, "sort_indices") and not mat.has_sorted_indices:
         mat.sort_indices()
 adata.write_h5ad(out)                            # + modern encoding-type for picklerick
-shutil.rmtree(tmp, ignore_errors=True)
 print(f"replogle: wrote {out} ({adata.shape[0]} cells x {adata.shape[1]} genes), "
       f"archive md5 {got}{'' if want else '  <- pin this in modules/godata/replogle/run.sh'}")
 PY

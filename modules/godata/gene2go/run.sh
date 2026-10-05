@@ -22,8 +22,9 @@
 set -euo pipefail
 
 # The md5 is the identity, the host is a parameter: point OMNI_GENE2GO_URL at any mirror
-# (or file:///…) and the check below still proves you got the canonical bytes. Dataverse
-# WAF-challenges some networks (HTTP 202, empty body) — see [[transfer-method]].
+# (or file:///…) and the check still proves you got the canonical bytes. Dataverse
+# WAF-challenges some networks (HTTP 202, empty body) — see [[transfer-method]]; a hapiq
+# cache server (OMNI_HAPIQ_PEERS) that already holds the bytes avoids Dataverse entirely.
 URL="${OMNI_GENE2GO_URL:-https://dataverse.harvard.edu/api/access/datafile/6153417}"
 MD5="${OMNI_GENE2GO_MD5:-77c9af0c61c30ea4d7a85680f4d122dc}"
 
@@ -39,18 +40,6 @@ done
 mkdir -p "$output_dir"
 out="$output_dir/gene2go_all.pkl"
 
-# urllib follows the Dataverse redirect; hashlib verifies. (python from the base env;
-# avoids depending on curl/wget being present in the conda env.)
-python - "$URL" "$out" "$MD5" <<'PY'
-import hashlib, shutil, sys, urllib.request
-url, out, want = sys.argv[1], sys.argv[2], sys.argv[3]
-# Dataverse 403s the default python-urllib User-Agent; send a browser-like one
-# (GEARS' own downloader uses requests, which sends a UA). urlopen follows redirects.
-req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (omni-scfm gene2go fetch)"})
-with urllib.request.urlopen(req) as r, open(out, "wb") as f:
-    shutil.copyfileobj(r, f)
-got = hashlib.md5(open(out, "rb").read()).hexdigest()
-if got != want:
-    sys.exit(f"gene2go md5 mismatch: got {got}, want {want}")
-print(f"gene2go: fetched {out} (md5 {got})")
-PY
+# Through hapiq's content-addressed cache (and any OMNI_HAPIQ_PEERS cache servers), md5-
+# checked — see ../hapiq_get.sh. A file:// URL is copied as-is.
+bash "$(dirname "${BASH_SOURCE[0]}")/../hapiq_get.sh" "$URL" "$out" "$MD5"

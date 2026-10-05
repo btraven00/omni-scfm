@@ -29,29 +29,28 @@ done
 mkdir -p "$output_dir"
 out="$output_dir/go_essential_all.csv"
 
-# file:// — a local mirror is just copied (handles a pre-downloaded .csv or tar).
+# file:// — a local mirror of the .csv itself is just copied.
 case "$URL" in
   file://*.csv) cp "${URL#file://}" "$out"; echo "copied $out"; exit 0 ;;
 esac
 
-python - "$URL" "$out" "$MD5" <<'PY'
-import hashlib, shutil, sys, tarfile, tempfile, urllib.request, glob, os
-url, out, want = sys.argv[1], sys.argv[2], sys.argv[3]
-req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (omni-scfm go_essential fetch)"})
-tmp = tempfile.mkdtemp()
-tar = os.path.join(tmp, "go.tar")
-with urllib.request.urlopen(req) as r, open(tar, "wb") as f:
-    shutil.copyfileobj(r, f)
-with tarfile.open(tar) as t:
+# The archive comes through hapiq's cache (../hapiq_get.sh). Its pin is on the extracted
+# CSV, not on the tar, so the download is unpinned and the CSV is checked below.
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+bash "$(dirname "${BASH_SOURCE[0]}")/../hapiq_get.sh" "$URL" "$tmp/go.tar"
+
+python - "$tmp" "$out" "$MD5" <<'PY'
+import glob, hashlib, os, shutil, sys, tarfile
+tmp, out, want = sys.argv[1], sys.argv[2], sys.argv[3]
+with tarfile.open(os.path.join(tmp, "go.tar")) as t:
     t.extractall(tmp)
 csv = (glob.glob(os.path.join(tmp, "**", "go_essential_all.csv"), recursive=True)
        or glob.glob(os.path.join(tmp, "go_essential_all.csv")))
 if not csv:
-    sys.exit(f"go_essential: no go_essential_all.csv in tar from {url}")
+    sys.exit("go_essential: no go_essential_all.csv in the archive")
 got = hashlib.md5(open(csv[0], "rb").read()).hexdigest()
 if got != want:
     sys.exit(f"go_essential md5 mismatch: got {got}, want {want}")
 shutil.move(csv[0], out)
-shutil.rmtree(tmp, ignore_errors=True)
 print(f"go_essential: fetched {out} (md5 {got})")
 PY
