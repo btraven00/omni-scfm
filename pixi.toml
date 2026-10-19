@@ -284,14 +284,22 @@ session-info = "==1.0.0"
 # scgpt, the forked cell-gears 0.0.2, and torchtext 0.14.0 are --no-deps (their strict
 # == pins fight the resolved stack — torchtext pins torch==1.13.0, cell-gears its own
 # closure); flash-attn 1.0.4 is --no-build-isolation so the already-installed torch is
-# importable while it compiles its CUDA ext against the env-local cuda-nvcc 11.7. Run
-# after `pixi install -e scgpt-gpu`.
+# importable while it compiles its CUDA ext. Run after `pixi install -e scgpt-gpu`.
 # PRE-AUTHORIZED FALLBACK (if the 1.0.4 source build still fights the box): relax ONLY
 # flash-attn — keep torch/scgpt/cell-gears bit-faithful and either swap in a prebuilt
 # flash-attn that still exposes FlashMHA, or set use_fast_transformer=False (a one-line,
 # documented deviation à la scfoundation's batch=4). Do NOT escape the rest to a newer stack.
-scgpt-postinstall = """python -m pip install --no-deps scgpt==0.2.1 cell-gears==0.0.2 torchtext==0.14.0 \
-&& python -m pip install --no-build-isolation flash-attn==1.0.4"""
+# setuptools: the lock resolves 82.x, which dropped pkg_resources (torch 1.13's cpp_extension
+# imports it -> the flash-attn build fails). Pin the paper's 69.5.1 here (envs/scgpt-gpu.yml
+# already does); pinning it in the feature instead makes pixi 0.71's re-lock panic — which is
+# also why the toolchain below isn't in the feature. The feature's cuda-nvcc 11.7 lacks
+# thrust/cub + cuBLAS/cuSPARSE/cuSOLVER headers, so the build uses the full 11.7.1 toolkit
+# (the yml's) from a `pixi exec` prefix. nvcc 11.7 needs a host g++ <= 11.5: on a box whose
+# default is newer, run this with CC=gcc-11 CXX=g++-11 (torch passes CC to nvcc as -ccbin).
+scgpt-postinstall = """python -m pip install setuptools==69.5.1 \
+&& python -m pip install --no-deps scgpt==0.2.1 cell-gears==0.0.2 torchtext==0.14.0 dcor==0.6 \
+&& CUDA_HOME=$(pixi exec -c nvidia/label/cuda-11.7.1 -c conda-forge -s cuda-toolkit=11.7.1 -- bash -c 'echo $CONDA_PREFIX' | tail -1) \
+python -m pip install --no-build-isolation --no-deps flash-attn==1.0.4"""
 # Side-load: scGPT's gene embedding for lpm_scgptGeneEmb -> data/embeddings/scgpt_gene.tsv.
 # A weight lookup (no flash-attn, no GPU), so it only needs the postinstall's --no-deps line,
 # re-run here (a no-op once installed). Needs `pixi run -e hf fetch-scgpt-model-hf`.

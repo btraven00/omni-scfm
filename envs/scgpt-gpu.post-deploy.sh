@@ -17,9 +17,12 @@
 # FlashMHA, or set use_fast_transformer=False in run_scgpt.py) — keep the rest faithful.
 set -euo pipefail
 
-# flash-attn's setup.py locates CUDA via CUDA_HOME / nvcc on PATH. cuda-nvcc installs nvcc
-# into $CONDA_PREFIX/bin and the toolkit under $CONDA_PREFIX, so point CUDA_HOME there.
+# flash-attn's setup.py locates CUDA via CUDA_HOME / nvcc on PATH. cuda-toolkit installs nvcc
+# into $CONDA_PREFIX/bin and the headers under $CONDA_PREFIX, so point CUDA_HOME there.
 export CUDA_HOME="${CUDA_HOME:-$CONDA_PREFIX}"
+# nvcc 11.7 needs a host g++ <= 11.5: use the env's conda-forge gcc/g++ 11, not the box's
+# (torch's cpp_extension hands CC to nvcc as -ccbin and version-checks CXX).
+export CC="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcc" CXX="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-g++"
 
 echo "scgpt-gpu.post-deploy: installing scgpt/cell-gears/torchtext (--no-deps)"
 python -m pip install --no-deps scgpt==0.2.1 cell-gears==0.0.2 torchtext==0.14.0

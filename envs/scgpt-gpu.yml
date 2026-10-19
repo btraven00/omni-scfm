@@ -1,6 +1,7 @@
 name: scgpt-gpu
 channels:
-- nvidia      # CUDA 11.7 toolkit (nvcc) to compile flash-attn 1.0.4 — see note below
+- nvidia/label/cuda-11.7.1   # the full CUDA 11.7.1 toolkit to compile flash-attn 1.0.4 — see note below
+- nvidia
 - conda-forge
 - bioconda
 # Env for the scGPT method (run_scgpt.py = a pretrained scGPT TransformerGenerator
@@ -33,18 +34,26 @@ channels:
 #    the identical --no-deps install in the `scgpt-postinstall` task.)
 #  - flash-attn==1.0.4: its setup.py `import torch` at build time fails under conda's BUILD
 #    ISOLATION (fresh env, no torch); post-deploy builds it --no-build-isolation against the
-#    now-installed torch + the env-local cuda-nvcc 11.7.
+#    now-installed torch + the env-local CUDA 11.7.1 toolkit and g++ 11.
 # FALLBACK if 1.0.4 still won't compile: relax ONLY flash-attn (prebuilt FlashMHA wheel or
 # use_fast_transformer=False) — keep the rest faithful.
 dependencies:
 - python 3.10.14
 - pip
-# CUDA 11.7 toolkit to COMPILE flash-attn 1.0.4 (torch's wheel ships only the cu117
-# runtime, never nvcc). Matches torch's cu117. If the build wants more headers (cublas
-# etc.), add cuda-libraries-dev=11.7.*. FALLBACK if it won't build: relax ONLY flash-attn
-# (prebuilt wheel exposing FlashMHA, or use_fast_transformer=False) — keep the rest faithful.
-- cuda-nvcc 11.7.*
-- cuda-cudart-dev 11.7.*
+# Toolchain to COMPILE flash-attn 1.0.4 (torch's wheel ships only the cu117 runtime, never
+# nvcc). Proven on roland's L4 (2026-10-19), where three walls came up in turn:
+#  - cuda-nvcc + cuda-cudart-dev alone lack thrust/cub (`thrust/complex.h: No such file`)
+#    and the cuBLAS/cuSPARSE/cuSOLVER headers torch's CUDAContext.h includes -> the WHOLE
+#    11.7.1 toolkit from NVIDIA's pinned label channel (nvcc 11.7, matches torch's cu117).
+#  - nvcc 11.7 refuses a host g++ > 11.5 (most boxes now ship 13) -> conda-forge gcc/gxx 11;
+#    post-deploy points CC/CXX at them (torch passes CC to nvcc as -ccbin).
+#  - setuptools >= 81 has no pkg_resources, which torch 1.13's cpp_extension imports ->
+#    the paper's setuptools==69.5.1 (already in the pip list below).
+# FALLBACK if it won't build: relax ONLY flash-attn (prebuilt wheel exposing FlashMHA, or
+# use_fast_transformer=False) — keep the rest faithful.
+- cuda-toolkit 11.7.1
+- gcc_linux-64 11.*
+- gxx_linux-64 11.*
 - pip:
   - absl-py==2.1.0
   - aiohttp==3.9.5

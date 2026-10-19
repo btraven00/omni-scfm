@@ -34,6 +34,11 @@
 #                     data/scgpt/scgpt_human_hf.json, else data/scgpt/scGPT_human.
 #   OMNI_SCGPT_EPOCHS fine-tune epochs (default 15, the paper's value)
 #   OMNI_SCGPT_BATCH  batch size (default 64, the paper's value)
+#   OMNI_SCGPT_PRED_BATCH  batch size of the final predict() loader ONLY (default = the batch
+#                     size). Safe to lower: predict() runs every gene, eval mode, no RNG, and
+#                     averages per perturbation: memory changes, numbers only to float rounding (64 OOMs a
+#                     24GB L4). NOT eval_batch_size: validation samples 1536 genes per batch
+#                     with torch.randperm, so that one changes best-model selection.
 #   OMNI_GEARS_CACHE  dir with a gene2go *.pkl (else data/godata side-load)
 # Output:
 #   {dataset}.predictions.json.gz   {condition: [per-gene scGPT prediction]}
@@ -132,6 +137,7 @@ sed -e "s#/home/ahlmanne/huber/data/scgpt_models/scGPT_human#$SCGPT_MODEL#g" \
     -e "s#[^\"']*scfoundation/model/#$MODEL/#g" \
     -e "s#^batch_size = 64#batch_size = $BATCH#" \
     -e "s#^eval_batch_size = 64#eval_batch_size = $BATCH#" \
+    -e "s#DataLoader(cell_graphs, batch_size=eval_batch_size#DataLoader(cell_graphs, batch_size=${OMNI_SCGPT_PRED_BATCH:-$BATCH}#" \
     "$VENDORED" > "$patched"
 export OMNI_VENDORED_SCRIPT="$patched"
 
