@@ -396,14 +396,36 @@ urllib3 = "==1.26.6"
 tqdm = "==4.66.5"
 session-info = "==1.0.0"
 
-[feature.uce.system-requirements]
+[feature.uce-gpu.system-requirements]
 cuda = "12"
 
 [feature.uce-gpu.pypi-dependencies]
 torch = "==2.1.1"
 
+[feature.uce-blackwell.system-requirements]
+cuda = "12"
+
 [feature.uce-blackwell.pypi-dependencies]
 torch = { version = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" }
+
+# uce-tpu (SPIKE, branch spike/tpu-uce): UCE on a Cloud TPU via torch_xla. accelerate 0.24.0
+# picks the XLA device up by itself once torch_xla is importable. torch_xla 2.1.0 is the
+# release paired with accelerate 0.24 (both Oct 2023) and the nearest to the paper's torch
+# 2.1.1 (xla 2.1 needs torch ==2.1.0, CPU wheel). libtpu comes from Google's find-links page.
+# No cuda requirement, so the cuda pin moved from `uce` to the two GPU features. No
+# envs/*.yml mirror: OB's run box has no TPU.
+[feature.uce-tpu.pypi-dependencies]
+torch = { version = "==2.1.0", index = "https://download.pytorch.org/whl/cpu" }
+torch-xla = { version = "==2.1.0", extras = ["tpu"] }
+libtpu-nightly = "==0.1.dev20230825"   # torch-xla[tpu] 2.1.0's pin; a pre-release, so uv needs it named
+
+# torch_xla 2.1's _XLAC links libpython3.10.so but has no rpath to the env's lib/.
+[feature.uce-tpu.activation.env]
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+
+[feature.uce-tpu.pypi-options]
+index-url = "https://pypi.org/simple"
+find-links = [{ url = "https://storage.googleapis.com/libtpu-releases/index.html" }]
 
 # scbert: the scBERT method (run_scbert.py: fine-tune the pretrained Performer as a
 # perturbation classifier via the paper's finetune_modified.py, embed ctrl cells with the
@@ -464,6 +486,7 @@ geneformer-gpu = { features = ["geneformer", "geneformer-gpu"] }
 geneformer-blackwell = { features = ["geneformer", "geneformer-blackwell"] }
 uce-gpu = { features = ["uce", "uce-gpu"] }
 uce-blackwell = { features = ["uce", "uce-blackwell"] }
+uce-tpu = { features = ["uce", "uce-tpu"] }
 scbert-gpu = { features = ["scbert", "scbert-gpu"] }
 scbert-blackwell = { features = ["scbert", "scbert-blackwell"] }
 omnipath = { features = ["omnipath"] }

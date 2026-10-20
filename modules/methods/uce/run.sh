@@ -25,6 +25,9 @@
 #                         padding, no batch-dependent layers -> each cell's embedding is
 #                         independent of the batch, so lowering it (e.g. 25 on a 24GB L4)
 #                         does not change results. The 4-layer at 100 OOMs a 24GB L4.
+#   PJRT_DEVICE=TPU       (uce-tpu env, spike) run on a Cloud TPU via torch_xla; accelerate
+#                         picks the XLA device up itself. PJRT_DEVICE=CPU = XLA on CPU, a
+#                         slow local dry run of the same code path.
 # Output:
 #   {dataset}.predictions.json.gz   {condition: [per-gene prediction]}
 #   {dataset}.gene_names.json
@@ -92,9 +95,16 @@ cp "$split" "$wd/results/$cfg"
 # Per-job UCE checkout: vendored code + model_files/ = its committed csv + symlinks to the side-load.
 cp -r "$UCE_CODE" "$wd/uce"
 for f in "$MF"/*; do ln -s "$(realpath "$f")" "$wd/uce/model_files/$(basename "$f")"; done
+# TPU (uce-tpu env): XLA on TPU runs fp32 matmuls as one bf16 pass by default; force full
+# precision so embeddings stay comparable to the GPU runs. No-op where torch_xla is absent.
+sed -i 's#^from accelerate import Accelerator$#&\ntry:\n    import torch_xla; torch_xla._XLAC._xla_set_use_full_mat_mul_precision(use_full_mat_mul_precision=True)\nexcept ImportError:\n    pass#' \
+    "$wd/uce/eval_single_anndata.py"
+grep -q "_xla_set_use_full_mat_mul_precision" "$wd/uce/eval_single_anndata.py" || {
+  echo "uce/run.sh: XLA-precision patch did not apply" >&2; exit 5; }
 
 patched="$wd/run_uce.py"
 sed -e "s#cd /home/ahlmanne/prog/UCE#cd $wd/uce#" \
+    -e 's#str(torch.cuda.get_device_name())#(torch.cuda.get_device_name() if torch.cuda.is_available() else "none (cpu/xla)")#' \
     ${OMNI_UCE_BATCH:+-e "s#--batch_size [0-9]*#--batch_size $OMNI_UCE_BATCH#"} \
     -e "s#/home/ahlmanne/data/universal_cell_embedding/#$(realpath "$MF")/#g" \
     -e "s#[^\"']*scfoundation_gears/#$FORK/#g" \
