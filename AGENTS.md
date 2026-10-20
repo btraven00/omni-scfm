@@ -22,6 +22,10 @@ to mirror their pixi feature — **if you change one, change both.**
 - pip-coupled stacks (e.g. `cpa-gpu`): pixi's uv resolver is **stricter than pip**.
   When a package caps a conda-provided build/meta tool (setuptools, packaging, …),
   pin that tool conda-side in `[feature.<id>.dependencies]` so uv can satisfy it.
+- **Re-lock with `CONDA_OVERRIDE_CUDA=12 pixi lock …`.** To read the PyPI sdists
+  (session-info, docrep, loompy, …) pixi installs the env, which needs `__cuda`; on a
+  machine where it isn't detected, 0.71 panics ("could not initialize build dispatch …
+  no compatible Python interpreter") instead of saying why.
 - **Never put an environment in `scratch/`.** `scratch/` is throwaway, git-ignored,
   and must not be a dependency of anything tracked (tests, modules, docs).
 
@@ -101,6 +105,11 @@ first-class global-input (planned upstream).
 | `data/scbert/scbert_hf.json` | `pixi run -e hf fetch-scbert-hf` (our GPL-3.0 mirror `btraven/scbert-panglao-pretrain@cbf8b4eb`, sha256-pinned to the Drive copy — a third-party re-upload, see the fetcher header) | **scbert** (not ported yet) | — |
 | `data/scgpt/scgpt_human_hf.json` | `pixi run -e hf fetch-scgpt-model-hf` (Hugging Face, via omni-huggingface) | **scgpt** | hard-fail; a manifest into the shared HF cache, so re-run it if the cache is cleared |
 | `data/scgpt/scGPT_human/` | `OMNI_SCGPT_URL='file:///abs/scGPT_human' pixi run fetch-scgpt-model` — **deprecated**, same bytes | **scgpt** (fallback) | only needed if the HF repo is unreachable |
+
+**Run tracking** follows the same side-load rule: `cp track.example.yaml track.yaml`
+(git-ignored, next to `out/`) turns on W&B for the methods that `source
+modules/methods/track.sh <method>` (exports `WANDB_*`); in-loop code calls
+`omni_track.log(...)`, a no-op when tracking is off. No file → the job is unchanged.
 
 `pixi run fetch-all` runs every fetcher above in order (idempotent; `OMNI_FETCH_SKIP="uce …"` to skip some).
 

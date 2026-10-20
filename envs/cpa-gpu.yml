@@ -27,6 +27,7 @@ dependencies:
 - setuptools=70.0.*   # cpa-tools 0.8.8 pins setuptools<70.1 (else strict resolvers conflict)
 - packaging=24.*      # cpa-tools->lightning 2.2.x pins packaging<25
 - pip:
+  - wandb==0.30.0         # OPTIONAL run tracking, off unless track.yaml (modules/methods/track.sh)
   - torch==2.0.0
   - torch-geometric==2.5.3   # cell-gears PertData import needs PyG (paper pin)
   - cpa-tools==0.8.8

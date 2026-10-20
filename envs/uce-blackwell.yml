@@ -29,6 +29,7 @@ dependencies:
   - wheel=0.43.0=pyhd8ed1ab_1
   - xz=5.2.6=h166bdaf_0
   - pip:
+    - wandb==0.30.0         # OPTIONAL run tracking, off unless track.yaml (modules/methods/track.sh)
       - --extra-index-url https://download.pytorch.org/whl/cu128
       - accelerate==0.24.0
       - aiohttp==3.9.5

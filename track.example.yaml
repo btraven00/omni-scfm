@@ -1,0 +1,15 @@
+# Run tracking (Weights & Biases) for the method modules. OFF unless a track.yaml exists.
+# Copy this to track.yaml (git-ignored) in the user repo, i.e. the dir holding out/:
+#   cp track.example.yaml track.yaml
+# Method run.sh scripts read it via modules/methods/track.sh (override the path with
+# OMNI_TRACK_CONFIG). It is a side-loaded file on purpose: OB can't wire one global input into
+# every dataset lineage (0.5.1 drops it, 0.7.0 rejects the plan), and a plan parameter would
+# re-hash every output path.
+#
+# Flat `key: value` only (parsed in bash, no YAML lib in the R envs). The API key is NOT read
+# from here: `wandb login` once (~/.netrc) or export WANDB_API_KEY.
+project: omni-scfm
+entity:               # your W&B user or team; empty = the key's default entity
+mode: online          # online | offline (runs kept in <user repo>/wandb/; `wandb sync` later) | disabled
+group:                # optional: group runs, e.g. a box or campaign name (gpubox-2026-10)
+tags:                 # optional, comma-separated; method,dataset,seed<N> are added per run

@@ -92,6 +92,9 @@ requests = "*"
 typing_extensions = "*"
 session-info = "*"
 
+[feature.gears-gpu.pypi-dependencies]
+wandb = "==0.30.0"         # OPTIONAL run tracking, off unless track.yaml (modules/methods/track.sh)
+
 [feature.gears-gpu.tasks]
 gears-gpu-postinstall = "python -m pip install cell-gears==0.1.2"
 
@@ -129,7 +132,7 @@ python = "3.10.*"
 pip = "*"
 
 [feature.scfoundation.pypi-dependencies]
-wandb = "==0.30.0"         # OPTIONAL run tracking (off unless WANDB_API_KEY / WANDB_MODE set; see run.sh)
+wandb = "==0.30.0"         # OPTIONAL run tracking, off unless track.yaml or WANDB_API_KEY / WANDB_MODE (see run.sh)
 torch-geometric = "==2.5.3"
 cell-gears = "==0.1.2"
 einops = "==0.8.0"
@@ -208,6 +211,7 @@ setuptools = "70.0.*"   # cpa-tools pins setuptools<70.1
 packaging = "24.*"      # cpa-tools->lightning 2.2.x pins packaging<25
 
 [feature.cpa-gpu.pypi-dependencies]
+wandb = "==0.30.0"         # OPTIONAL run tracking, off unless track.yaml (modules/methods/track.sh)
 torch = "==2.0.0"
 torch-geometric = "==2.5.3"   # cell-gears PertData import needs PyG
 cpa-tools = "==0.8.8"
@@ -252,6 +256,7 @@ cuda-nvcc = "11.7.*"        # nvcc, to compile flash-attn 1.0.4's CUDA extension
 cuda-cudart-dev = "11.7.*"  # CUDA runtime headers the build #includes
 
 [feature.scgpt-gpu.pypi-dependencies]
+wandb = "==0.30.0"         # OPTIONAL run tracking, off unless track.yaml (modules/methods/track.sh)
 torch = "==1.13.1"            # PyPI default wheel == the cu117 build (== paper's +cu117)
 torchvision = "==0.14.1"
 # torchtext 0.14.0 is installed --no-deps in the postinstall: its metadata pins
@@ -292,8 +297,9 @@ session-info = "==1.0.0"
 # setuptools: the lock resolves 82.x, which dropped pkg_resources (torch 1.13's cpp_extension
 # imports it -> the flash-attn build fails). Pin the paper's 69.5.1 here (envs/scgpt-gpu.yml
 # already does); pinning it in the feature instead makes pixi 0.71's re-lock panic — which is
-# also why the toolchain below isn't in the feature. The feature's cuda-nvcc 11.7 lacks
-# thrust/cub + cuBLAS/cuSPARSE/cuSOLVER headers, so the build uses the full 11.7.1 toolkit
+# also why the toolchain below isn't in the feature. (That panic is pixi failing to install the env
+# for its sdist builds when it detects no __cuda: lock with CONDA_OVERRIDE_CUDA=12, see AGENTS.md.)
+# The feature's cuda-nvcc 11.7 lacks thrust/cub + cuBLAS/cuSPARSE/cuSOLVER headers, so the build uses the full 11.7.1 toolkit
 # (the yml's) from a `pixi exec` prefix. nvcc 11.7 needs a host g++ <= 11.5: on a box whose
 # default is newer, run this with CC=gcc-11 CXX=g++-11 (torch passes CC to nvcc as -ccbin).
 scgpt-postinstall = """python -m pip install setuptools==69.5.1 \
@@ -326,6 +332,7 @@ python = "3.10.*"
 pip = "*"
 
 [feature.geneformer.pypi-dependencies]
+wandb = "==0.26.1"         # OPTIONAL run tracking (track.yaml). NOT 0.30: wandb >=0.27 needs click>=8.2, the paper pins click 8.1.7
 transformers = "==4.47.0"
 accelerate = "==1.2.0"
 datasets = "==3.1.0"
@@ -372,6 +379,7 @@ python = "3.10.*"
 pip = "*"
 
 [feature.uce.pypi-dependencies]
+wandb = "==0.30.0"         # OPTIONAL run tracking, off unless track.yaml (modules/methods/track.sh)
 accelerate = "==0.24.0"
 anndata = "==0.10.7"
 cell-gears = "==0.1.2"
@@ -411,6 +419,7 @@ python = "3.10.*"
 pip = "*"
 
 [feature.scbert.pypi-dependencies]
+wandb = "==0.30.0"         # OPTIONAL run tracking, off unless track.yaml (modules/methods/track.sh)
 anndata = "==0.10.7"
 cell-gears = "==0.1.2"
 torch-geometric = "==2.5.3"

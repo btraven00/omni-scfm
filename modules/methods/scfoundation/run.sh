@@ -29,7 +29,7 @@
 #                           the run) while making the same RNG draws -> same training
 #                           trajectory; train metrics print as nan. Default 0 (as the paper).
 #   OMNI_SCF_RNG_TRACE=1    print a CPU/CUDA RNG-state hash after that point every epoch.
-#   WANDB_API_KEY / WANDB_MODE  OPTIONAL Weights & Biases tracking via the fork's own hooks
+#   track.yaml (or WANDB_API_KEY / WANDB_MODE)  OPTIONAL Weights & Biases tracking via the fork's own hooks
 #                           (per-step training loss, per-epoch train/val MSE, test metrics).
 #                           Off unless one is set (WANDB_MODE=offline logs to local files, no
 #                           key, nothing sent). Project OMNI_WANDB_PROJECT (default omni-scfm),
@@ -129,6 +129,7 @@ if [[ -z $seed ]]; then
   [[ -f $pj ]] && seed=$(grep -oE '"seed"[[:space:]]*:[[:space:]]*[0-9]+' "$pj" | grep -oE '[0-9]+' | head -1)
   seed="${seed:-1}"
 fi
+source "$REPO/modules/methods/track.sh" scfoundation   # track.yaml -> WANDB_* (see track.example.yaml)
 
 wd=$(mktemp -d); trap 'rm -rf "$wd"' EXIT
 # scFoundation loads via data_path = data/gears_pert_data/<ds> (no name dodge — the
@@ -189,10 +190,10 @@ sed -e "s#[^\"']*scfoundation_gears/#$FORK/#g" \
 # Optional W&B: switch on the fork's built-in hooks (GEARS(weight_bias_track=...)).
 if [[ -n "${WANDB_API_KEY:-}" || -n "${WANDB_MODE:-}" ]]; then
   if python -c 'import wandb' 2>/dev/null; then
-    run_name="$ds-seed$seed-scfoundation"
-    sed -i "s#^gears_model = GEARS(pert_data, device = 'cuda')#gears_model = GEARS(pert_data, device = 'cuda', weight_bias_track = True, proj_name = '${OMNI_WANDB_PROJECT:-omni-scfm}', exp_name = '$run_name')#" "$patched"
+    run_name="${WANDB_NAME:-$ds-seed$seed-scfoundation}" proj="${WANDB_PROJECT:-${OMNI_WANDB_PROJECT:-omni-scfm}}"
+    sed -i "s#^gears_model = GEARS(pert_data, device = 'cuda')#gears_model = GEARS(pert_data, device = 'cuda', weight_bias_track = True, proj_name = '$proj', exp_name = '$run_name')#" "$patched"
     grep -q "weight_bias_track = True" "$patched" \
-      && echo "scfoundation: wandb on (project ${OMNI_WANDB_PROJECT:-omni-scfm}, run $run_name, mode ${WANDB_MODE:-online})" \
+      && echo "scfoundation: wandb on (project $proj, run $run_name, mode ${WANDB_MODE:-online})" \
       || echo "scfoundation: WARNING wandb requested but the GEARS(...) call was not found — running without it" >&2
   else
     echo "scfoundation: WARNING wandb requested but not importable in this env — running without it" >&2

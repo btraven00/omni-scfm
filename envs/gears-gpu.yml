@@ -26,4 +26,5 @@ dependencies:
 - typing_extensions
 - session-info
 - pip:
+  - wandb==0.30.0         # OPTIONAL run tracking, off unless track.yaml (modules/methods/track.sh)
   - cell-gears==0.1.2

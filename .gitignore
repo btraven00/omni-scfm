@@ -74,3 +74,7 @@ Thumbs.db
 
 # pixi environments (large; envs/*.yml are the committed specs)
 .pixi/
+
+# Run tracking config (copy of track.example.yaml; may name a private W&B entity)
+track.yaml
+wandb/
