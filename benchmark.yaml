@@ -176,9 +176,10 @@ stages:
           entrypoint: split
         parameters:
           # Seed grid — single source of truth (YAML anchor; alias *seeds elsewhere
-          # if another stage ever needs the same set). Paper: singles=1,2 / doubles=1–5;
-          # running 2 seeds everywhere for now (testing). Bump the anchor to change all.
-          - seed: &seeds [1, 2]
+          # if another stage ever needs the same set). Paper: singles=1,2 / doubles=1–5.
+          # OB can't scope a parameter per dataset, so the grid is 1–5 everywhere; runs on
+          # the singles (adamson) target seeds 1,2 only (snakemake targets, as on gpubox).
+          - seed: &seeds [1, 2, 3, 4, 5]
 
   # 4. Ground truth: observed condition means (scoring target, seed-independent).
   - id: ground_truth
