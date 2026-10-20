@@ -1,4 +1,5 @@
 # Run tracking (Weights & Biases) for the method modules. OFF unless a track.yaml exists.
+# Docs: docs/wandb.md
 # Copy this to track.yaml (git-ignored) in the user repo, i.e. the dir holding out/:
 #   cp track.example.yaml track.yaml
 # Method run.sh scripts read it via modules/methods/track.sh (override the path with

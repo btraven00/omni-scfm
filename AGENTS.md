@@ -110,6 +110,7 @@ first-class global-input (planned upstream).
 (git-ignored, next to `out/`) turns on W&B for the methods that `source
 modules/methods/track.sh <method>` (exports `WANDB_*`); in-loop code calls
 `omni_track.log(...)`, a no-op when tracking is off. No file → the job is unchanged.
+See `docs/wandb.md`.
 
 `pixi run fetch-all` runs every fetcher above in order (idempotent; `OMNI_FETCH_SKIP="uce …"` to skip some).
 
