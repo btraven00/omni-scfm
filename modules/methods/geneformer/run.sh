@@ -76,6 +76,8 @@ conds = [c for v in json.load(open(sys.argv[1])).values() for c in v]
 print("overexpress" if any(len([g for g in c.split("+") if g != "ctrl"]) > 1 for c in conds) else "delete")' "$split")
 fi
 
+source "$REPO/modules/methods/track.sh" geneformer   # track.yaml -> WANDB_*; none -> wandb disabled (HF Trainer auto-logs)
+
 wd=$(mktemp -d); trap 'rm -rf "$wd"' EXIT
 export TMPDIR="$wd"   # the script's tempfile.mkdtemp() dirs (tokenized data, fine-tuned model) die with $wd
 mkdir -p "$wd/data/gears_pert_data/$ds" "$wd/results"

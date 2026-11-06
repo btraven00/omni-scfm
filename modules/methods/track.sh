@@ -3,9 +3,11 @@
 # Reads $OMNI_TRACK_CONFIG (default $DATA_ROOT/track.yaml, see track.example.yaml) and
 # exports the standard WANDB_* env vars, so any wandb.init() in the job (the vendored fork's
 # own hooks, or omni_track.py) picks up project/entity/mode/group/tags/run name unchanged.
-# No config file -> nothing exported, OMNI_TRACK=0, the job runs exactly as without it.
+# No config file -> OMNI_TRACK=0 and WANDB_MODE=disabled: wandb is installed in every env, and
+# libraries that auto-log when it is importable (HF Trainer, geneformer) would otherwise call
+# wandb.init() and die with "No API key configured".
 _track_cfg="${OMNI_TRACK_CONFIG:-$DATA_ROOT/track.yaml}"
-export OMNI_TRACK=0
+export OMNI_TRACK=0 WANDB_MODE=disabled
 if [[ -f $_track_cfg ]]; then
   _track_get() {  # flat `key: value`, comments and quotes stripped
     sed -nE "s/^$1:[[:space:]]*([^#]*).*/\1/p" "$_track_cfg" | head -1 | sed -E "s/[[:space:]]+$//; s/^[\"']//; s/[\"']$//"
