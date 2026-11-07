@@ -132,7 +132,7 @@ centrality_path = st.sidebar.text_input("gene_centrality.csv", str(DEFAULT_CENTR
 
 st.sidebar.markdown(
     f"**{len(df)}** rows · {df['method'].nunique()} method(s) · "
-    f"{df['dataset'].nunique()} dataset(s) · seeds {sorted(df['seed'].dropna().unique())}"
+    f"{df['dataset'].nunique()} dataset(s) · seeds {', '.join(str(int(s)) for s in sorted(df['seed'].dropna().unique()))}"
 )
 
 # credit — plain sidebar content (lives in the left bar, below the controls)
@@ -161,25 +161,27 @@ with tab_repro:
     if sub.empty:
         st.info(f"No scored perturbations on the {split} split.")
     else:
-        x = alt.X("method:N", sort=order, title=None,
-                  axis=alt.Axis(labelAngle=-30, labelFontSize=12))
         y = alt.Y(f"{metric}:Q", title=mlabel, scale=alt.Scale(zero=False))
-        base = alt.Chart(sub)
-        box = base.mark_boxplot(size=40, opacity=0.35, color="#aaa", outliers=False).encode(x=x, y=y)
-        pts = base.mark_circle(size=70, opacity=0.55).encode(
-            x=x, xOffset="jitter:Q", y=y,
-            color=alt.Color("method:N", legend=None, scale=alt.Scale(scheme="tableau10")),
-            tooltip=["method", "perturbation", alt.Tooltip(f"{metric}:Q", format=".3f"), "seed"],
-        ).transform_calculate(jitter="(random() - 0.5) * 0.6")
-        rule = base.mark_rule(color="#444", strokeDash=[4, 4]).encode(
-            y=f"mean({metric}):Q"
-        ).transform_filter(alt.FieldEqualPredicate(field="method", equal=order[0]))
-        chart = (box + pts + rule).properties(height=460)
-        if n_datasets > 1:
-            chart = chart.properties(width=max(220, 90 * n_methods)).facet(column="dataset:N")
-            st.altair_chart(chart.resolve_scale(y="shared"), use_container_width=False)
-        else:
-            st.altair_chart(chart, use_container_width=True)
+        # one container-width chart per dataset (a column facet of n_methods-wide panels
+        # ran thousands of px past the viewport)
+        dsets = sorted(sub["dataset"].unique())
+        for dtab, ds in zip(st.tabs(dsets), dsets):
+            with dtab:
+                dsub = sub[sub["dataset"] == ds]
+                dorder = [m for m in order if m in set(dsub["method"])]
+                xd = alt.X("method:N", sort=dorder, title=None,
+                           axis=alt.Axis(labelAngle=-30, labelFontSize=12, labelOverlap=False))
+                bd = alt.Chart(dsub)
+                box = bd.mark_boxplot(size=30, opacity=0.35, color="#aaa", outliers=False).encode(x=xd, y=y)
+                pts = bd.mark_circle(size=60, opacity=0.55).encode(
+                    x=xd, xOffset="jitter:Q", y=y,
+                    color=alt.Color("method:N", legend=None, scale=alt.Scale(scheme="tableau10")),
+                    tooltip=["method", "perturbation", alt.Tooltip(f"{metric}:Q", format=".3f"), "seed"],
+                ).transform_calculate(jitter="(random() - 0.5) * 0.6")
+                rule = bd.mark_rule(color="#444", strokeDash=[4, 4]).encode(
+                    y=f"mean({metric}):Q"
+                ).transform_filter(alt.FieldEqualPredicate(field="method", equal=dorder[0]))
+                st.altair_chart((box + pts + rule).properties(height=460), use_container_width=True)
 
     # --- double-perturbation figure: L2 violin + linked scatter grid --------
     # Reproduces the paper's double-pert figure: (a) violin/beeswarm of L2 error
@@ -232,9 +234,9 @@ with tab_repro:
             # the data (`ylab`), which always renders.
             yv = pd.concat([viol["y"], pp_ds[metric]]).astype(float)
             ymin, ymax = float(yv.min()), float(yv.max())
-            pad = (ymax - ymin) * 0.18 or 0.1
+            pad = (ymax - ymin) * 0.32 or 0.1
             yscale = alt.Scale(domain=[ymin - pad, ymax], nice=False)
-            ylab = ymin - pad * 0.45
+            ylab = ymin - pad * 0.12
 
             # the single y-axis (with gridlines) lives on this first layer; the other
             # layers set axis=None so they don't override/suppress it on the merge.
@@ -265,7 +267,7 @@ with tab_repro:
                 y=alt.Y("val:Q", scale=yscale), detail="method:N")
             lab = pd.DataFrame({"x": [centers[m] for m in morder], "y": ylab, "method": morder})
             labels = alt.Chart(lab).mark_text(
-                align="center", baseline="middle", fontSize=15, fontWeight="bold",
+                align="right", baseline="middle", angle=330, fontSize=12, fontWeight="bold",
                 color="#333").encode(
                 x=alt.X("x:Q", scale=xscale, axis=None),
                 y=alt.Y("y:Q", scale=yscale), text="method:N")
@@ -313,7 +315,7 @@ with tab_repro:
                 tooltip=["gene", alt.Tooltip("observed_delta:Q", format=".2f"),
                          alt.Tooltip("predicted_delta:Q", format=".2f")])
             grid = (line + scat).properties(width=180, height=180).facet(
-                facet=alt.Facet("method:N", sort=morder, title=None), columns=4)
+                facet=alt.Facet("method:N", sort=morder, title=None), columns=3)
             st.altair_chart(grid, use_container_width=False)
 
             # R²δ / L2 annotation per method (R²δ = Pearson corr of predicted-Δ vs
@@ -379,7 +381,7 @@ with tab_ext:
                 ngenes = [len([x for x in str(p).split("+") if x != "ctrl"]) for p in pert_order]
                 ptype = "double" if ngenes and sum(n >= 2 for n in ngenes) > len(ngenes) / 2 else "single"
                 show_labels = n_pert <= 40
-                panel_w = max(900, 20 * n_pert)
+                panel_w = "container"   # fixed px widths (>=900) ran off-screen next to the sidebar
 
                 nonce_key = f"pin_nonce_{ds}"
                 st.session_state.setdefault(nonce_key, 0)
@@ -414,7 +416,7 @@ with tab_ext:
                 ).add_params(hover, pin).properties(height=64 * ppd["method"].nunique() + 30, width=panel_w)
                 st.altair_chart(
                     alt.vconcat(strip, heat).resolve_scale(x="shared", color="independent"),
-                    use_container_width=False,
+                    use_container_width=True,
                     key=f"diff_{ds}_{metric}_{split}_{st.session_state[nonce_key]}",
                 )
 
