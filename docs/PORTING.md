@@ -35,9 +35,15 @@ paper-setting run still pending · **todo** = not ported.
   selection, but the train loader is `shuffle=True` on torch's global RNG, so the extra
   pass shifts every later epoch's shuffle order: not bit-identical. Kept as in the paper;
   details in `modules/methods/scfoundation/run.sh`.
-- **Replogle K562 / RPE1 as benchmark datasets:** the paper runs every method on them
-  (its longest jobs, e.g. Geneformer ≈ 11.5 h each); here they are only side-loaded
-  references for `transfer` / the lpm embeddings. Scope decision.
+- **Full paper grid (decided 2026-11-08: reproduce all of it).** Replogle K562 / RPE1
+  are now `download` modules (seeds 1,2, same Dataverse files as the side-load fetcher;
+  the fetch path is being redone). Still open before the grid is complete:
+  - **scgpt on the singles** (adamson, K562, RPE1): needs the script's else-branch +
+    `essential_all_data_pert_genes.pkl` side-load; excluded until ported.
+  - **cpa on the singles**: re-enabled in the plan, not yet run.
+  - **gears on norman_from_scfoundation**: in the paper's Panel A, but its run_gears.py
+    uses the forked GEARS 0.0.2 there; our module dodges the fork, so it's excluded.
+  - **transfer** on K562 uses RPE1 as reference (the paper's K562↔RPE1 supplement).
 - **norman_from_scfoundation split ≠ paper's split:** `scf_split` seeds numpy before
   GEARS loads the data, whose RNG use varies by setup, so test sets overlap the paper's
   only partly. Split-independent methods (additive) still match; split-dependent ones

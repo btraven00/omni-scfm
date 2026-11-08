@@ -12,7 +12,7 @@
 #
 # SINGLE-PERT ONLY: perturbations are matched by target-gene name, and a double
 # "A+B" never matches Replogle's singles, so on a double-pert dataset every
-# prediction column stays NA. Scoped to adamson in benchmark.yaml.
+# prediction column stays NA. Scoped to the single-pert datasets in benchmark.yaml.
 #
 # The reference is SIDE-LOADED (`pixi run fetch-replogle`), not an OB input: it is a
 # second dataset feeding every target's lineage, which OB 0.5.1 can't wire (same
@@ -22,7 +22,8 @@
 #   --data.h5ad PATH            processed AnnData from `preprocess`
 #   --split.set2conditions PATH {"train","val","test"} from `split` (per seed)
 # Env:
-#   OMNI_REPLOGLE_H5AD          reference h5ad (default data/replogle/replogle_k562_essential.h5ad)
+#   OMNI_REPLOGLE_H5AD          reference h5ad (default data/replogle/replogle_k562_essential.h5ad,
+#                               or ..._rpe1_essential.h5ad when the target IS K562)
 set -euo pipefail
 
 REPO="$(pwd)"
@@ -40,7 +41,12 @@ done
 DATA_ROOT="${output_dir%%/out/*}"
 [[ -z $DATA_ROOT || $DATA_ROOT == "$output_dir" ]] && DATA_ROOT="$REPO"
 
-ref="${OMNI_REPLOGLE_H5AD:-$DATA_ROOT/data/replogle/replogle_k562_essential.h5ad}"
+# Reference = K562, except on K562 itself, which transfers from RPE1 (the paper's
+# K562<->RPE1 supplement; self-reference would be leakage).
+ds=$(basename "$data_h5ad"); ds="${ds%%.*}"
+def_ref=replogle_k562_essential
+[[ $ds == replogle_k562_essential ]] && def_ref=replogle_rpe1_essential
+ref="${OMNI_REPLOGLE_H5AD:-$DATA_ROOT/data/replogle/$def_ref.h5ad}"
 [[ -f $ref ]] || {
   echo "transfer/run.sh: no reference dataset at '$ref' — run \`pixi run fetch-replogle\`" \
        "(or set OMNI_REPLOGLE_H5AD)" >&2; exit 3; }
@@ -54,7 +60,6 @@ bash modules/methods/run_r_method.sh run_transfer_perturbation_prediction.R \
 # predictions to truth by gene NAME, so leaving them would silently score NaN.
 # Positional: pred rows are psce's, i.e. all genes in X-column order, which is exactly
 # the order of preprocess's sibling gene_names.json. Length mismatch => refuse.
-ds=$(basename "$data_h5ad"); ds="${ds%%.*}"
 python3 - "${data_h5ad%.h5ad}.gene_names.json" "$output_dir/$ds.gene_names.json" <<'PY'
 import json, sys
 ref, emitted = sys.argv[1], sys.argv[2]

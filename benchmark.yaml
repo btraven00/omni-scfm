@@ -85,14 +85,42 @@ stages:
         # NB: additive is degenerate on this single-pert dataset (every "double" is a
         # single -> leakage). `exclude` does not prune in OB 0.5.1, so the collector's
         # DOUBLE_ONLY filter drops additive's single-pert rows instead (see collect.py).
-        # cpa + scfoundation + scgpt are norman_from_scfoundation-only (paper scope, first cut).
-        exclude: ["additive", "cpa", "scfoundation", "scgpt"]
+        # scfoundation is doubles-only in the paper (run_perturbation_benchmark.R:56-75);
+        # cpa + scgpt DO run on the singles (source data single_perturbation_prediction.xlsx);
+        # scgpt stays excluded until its single-pert branch is ported (see the scgpt module).
+        exclude: ["additive", "scfoundation", "scgpt"]
         repository:
           url: https://github.com/btraven00/omni-data
           commit: fe4df0e  # fix/downloadsh-extensionless-naming (robust naming)
         parameters:
           - uri: "https://dataverse.harvard.edu/api/access/datafile/6154417"
             hash: "md5:0bde631bae60ee8c105991ff0e0d4a20"
+      # Replogle 2022 essential screens: the paper's other two single-pert datasets
+      # (run_perturbation_benchmark.R:100, seeds 1,2). Same GEARS archive format as
+      # adamson (zip with perturb_processed.h5ad + go.csv), so preprocess/split take the
+      # generic path. Same Dataverse datafiles + md5s as the side-load fetcher
+      # modules/godata/replogle/run.sh (which still feeds transfer / lpm_*PertEmb).
+      # ponytail: Dataverse WAF-blocks some networks; the fetch path is being redone (HF).
+      - id: replogle_k562_essential
+        name: "Replogle 2022 K562 essential (GEARS-processed, Harvard Dataverse)"
+        software_environment: "omni_data"
+        exclude: ["additive", "scfoundation", "scgpt"]  # as adamson
+        repository:
+          url: https://github.com/btraven00/omni-data
+          commit: fe4df0e
+        parameters:
+          - uri: "https://dataverse.harvard.edu/api/access/datafile/7458695"
+            hash: "md5:84eed779531de88f83d3eb16a773a261"
+      - id: replogle_rpe1_essential
+        name: "Replogle 2022 RPE1 essential (GEARS-processed, Harvard Dataverse)"
+        software_environment: "omni_data"
+        exclude: ["additive", "scfoundation", "scgpt"]  # as adamson
+        repository:
+          url: https://github.com/btraven00/omni-data
+          commit: fe4df0e
+        parameters:
+          - uri: "https://dataverse.harvard.edu/api/access/datafile/7458694"
+            hash: "md5:169370a8da6093470f122172ab30f7c5"
       - id: norman
         name: "Norman 2019 (GEARS-processed, Harvard Dataverse) — double perturbations"
         software_environment: "omni_data"
@@ -233,8 +261,8 @@ stages:
       # measured in a reference dataset (Replogle K562, side-loaded via
       # `pixi run fetch-replogle` — a second dataset can't be an OB input, see
       # modules/godata/gene2go). Matching is by target-gene name, so doubles never
-      # match Replogle's singles: scoped to adamson via `exclude: ["transfer"]` on
-      # the two norman dataset modules (same inverse-scoping as cpa).
+      # match Replogle's singles: scoped to the singles via `exclude: ["transfer"]` on
+      # the two norman dataset modules. On K562 itself the reference is RPE1 (run.sh).
       - id: transfer
         name: "transfer prediction (verbatim run_transfer_perturbation_prediction.R)"
         software_environment: "r"
@@ -318,9 +346,8 @@ stages:
           url: "."
           commit: HEAD
           entrypoint: gears
-      # CPA (compositional perturbation autoencoder; verbatim run_cpa.py). Scoped to
-      # norman_from_scfoundation — the only substrate the paper reports CPA on — via
-      # `exclude: ["cpa"]` on the adamson + norman dataset modules (inverse of gears).
+      # CPA (compositional perturbation autoencoder; verbatim run_cpa.py). Paper scope:
+      # norman_from_scfoundation + the single-pert datasets — `exclude: ["cpa"]` on plain norman.
       # Reads the bit-exact substrate with stock cell-gears 0.1.2 (rename dodge in
       # run.sh avoids the script's scfoundation-fork branch); the GEARS 0.0.2 fork is
       # deferred to the future scfoundation method, which actually runs the model.

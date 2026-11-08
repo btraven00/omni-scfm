@@ -6,9 +6,8 @@
 # max_epochs=2000 with early stopping — all hyperparams are inline in the script),
 # then predicts each condition's mean expression vector.
 #
-# Scope: norman_from_scfoundation ONLY — the only substrate the paper reports CPA
-# on (doubles). adamson / plain norman are excluded at the dataset modules in
-# benchmark.yaml; the collector's DOUBLE_ONLY filter is the backstop.
+# Scope (the paper's): norman_from_scfoundation + the single-pert datasets (adamson,
+# Replogle K562/RPE1). Plain norman is excluded at its dataset module in benchmark.yaml.
 #
 # Staging mirrors gears: the script wants a GEARS PertData layout under
 # data/gears_pert_data/<name>/ (perturb_processed.h5ad + GO data) and the per-seed
