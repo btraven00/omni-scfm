@@ -1,0 +1,9 @@
+name: hf
+channels:
+- conda-forge
+- bioconda
+- https://prefix.dev/almost-conductor
+- nodefaults
+dependencies:
+- huggingface_hub *
+- python >=3.10,<3.13

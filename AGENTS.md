@@ -147,6 +147,14 @@ hf upload btraven/omni-scfm-data <file> --repo-type dataset        # per artifac
 # (`pixi run -e hf …`; the hf env has the CLI + an authenticated token)
 ```
 
+**State (2026-11-08, commit `6bc0f5af`):** the repo is public and holds the five
+benchmark *input* archives (`adamson`, `norman`, `norman_from_scfoundation`,
+`replogle_k562_essential`, `replogle_rpe1_essential` `.zip`, sha256-checked against the
+originals; md5s on the card). The Replogle `download` modules in `benchmark.yaml` fetch
+from it via `omni-huggingface`, pinned to that commit; the other three keep their
+original URLs, because changing a download module's parameters changes every
+downstream output path. `gene2go_all.pkl` / `go_essential_all.csv` are not mirrored yet.
+
 For anyone outside our machines, a public HF repo serves plain HTTPS, so **no new code
 or module is needed** — the fetchers take the resolve URL as-is, hash pins unchanged:
 

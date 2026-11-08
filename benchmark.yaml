@@ -19,6 +19,10 @@ software_environments:
     name: omni-data download env
     description: hapiq-backed dataset downloader
     conda: envs/omni-data.yml
+  hf:
+    name: omni-huggingface download env
+    description: huggingface_hub for the omni-huggingface module (dataset mirror btraven/omni-scfm-data)
+    conda: envs/hf.yml
   r:
     name: R / Bioconductor env
     description: runs the paper's R scripts verbatim (mean, …)
@@ -98,29 +102,38 @@ stages:
       # Replogle 2022 essential screens: the paper's other two single-pert datasets
       # (run_perturbation_benchmark.R:100, seeds 1,2). Same GEARS archive format as
       # adamson (zip with perturb_processed.h5ad + go.csv), so preprocess/split take the
-      # generic path. Same Dataverse datafiles + md5s as the side-load fetcher
-      # modules/godata/replogle/run.sh (which still feeds transfer / lpm_*PertEmb).
-      # ponytail: Dataverse WAF-blocks some networks; the fetch path is being redone (HF).
+      # generic path. Fetched from our Hugging Face mirror btraven/omni-scfm-data via
+      # omni-huggingface (pinned to a mirror COMMIT, so the bytes can't move): Dataverse
+      # WAF-blocks some networks. Byte-identical to Dataverse datafiles 7458695 / 7458694
+      # (md5 84eed779531de88f83d3eb16a773a261 / 169370a8da6093470f122172ab30f7c5, the
+      # same pins as the side-load fetcher modules/godata/replogle/run.sh, which still
+      # feeds transfer / lpm_*PertEmb). The module copies <dataset>.zip into output_dir.
+      # adamson / norman* stay on their original URLs: changing a download module's
+      # parameters changes every downstream output path (orphans finished results).
       - id: replogle_k562_essential
-        name: "Replogle 2022 K562 essential (GEARS-processed, Harvard Dataverse)"
-        software_environment: "omni_data"
+        name: "Replogle 2022 K562 essential (GEARS-processed; HF mirror of Harvard Dataverse)"
+        software_environment: "hf"
         exclude: ["additive", "scfoundation", "scgpt"]  # as adamson
         repository:
-          url: https://github.com/btraven00/omni-data
-          commit: fe4df0e
+          url: https://github.com/omnibenchmark/omni-huggingface
+          commit: dd042df
         parameters:
-          - uri: "https://dataverse.harvard.edu/api/access/datafile/7458695"
-            hash: "md5:84eed779531de88f83d3eb16a773a261"
+          - repo: "btraven/omni-scfm-data"
+            repo_type: "dataset"
+            revision: "6bc0f5af54f81c6e55db32c515ea37c3db6a61f8"
+            files: "replogle_k562_essential.zip"
       - id: replogle_rpe1_essential
-        name: "Replogle 2022 RPE1 essential (GEARS-processed, Harvard Dataverse)"
-        software_environment: "omni_data"
+        name: "Replogle 2022 RPE1 essential (GEARS-processed; HF mirror of Harvard Dataverse)"
+        software_environment: "hf"
         exclude: ["additive", "scfoundation", "scgpt"]  # as adamson
         repository:
-          url: https://github.com/btraven00/omni-data
-          commit: fe4df0e
+          url: https://github.com/omnibenchmark/omni-huggingface
+          commit: dd042df
         parameters:
-          - uri: "https://dataverse.harvard.edu/api/access/datafile/7458694"
-            hash: "md5:169370a8da6093470f122172ab30f7c5"
+          - repo: "btraven/omni-scfm-data"
+            repo_type: "dataset"
+            revision: "6bc0f5af54f81c6e55db32c515ea37c3db6a61f8"
+            files: "replogle_rpe1_essential.zip"
       - id: norman
         name: "Norman 2019 (GEARS-processed, Harvard Dataverse) — double perturbations"
         software_environment: "omni_data"

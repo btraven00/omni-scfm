@@ -475,6 +475,7 @@ dashboard = { features = ["base", "dashboard"] }
 export-base = "pixi workspace export conda-environment --environment default envs/base.yml"
 export-omnidata = "pixi workspace export conda-environment --environment omnidata envs/omni-data.yml"
 export-r = "pixi workspace export conda-environment --environment r envs/r.yml"
+export-hf = "pixi workspace export conda-environment --environment hf envs/hf.yml"
 # (gears env is declarative conda + pip --no-deps cell-gears; envs/gears.yml is
 #  hand-maintained to mirror the gears feature — no export needed.)
 # Collect metrics for one run: `pixi run collect [OUT_DIR] [-o SCORES.parquet]`
