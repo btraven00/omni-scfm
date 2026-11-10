@@ -44,11 +44,15 @@ paper-setting run still pending · **todo** = not ported.
   - **gears on norman_from_scfoundation**: in the paper's Panel A, but its run_gears.py
     uses the forked GEARS 0.0.2 there; our module dodges the fork, so it's excluded.
   - **transfer** on K562 uses RPE1 as reference (the paper's K562↔RPE1 supplement).
-- **norman_from_scfoundation split ≠ paper's split:** `scf_split` seeds numpy before
-  GEARS loads the data, whose RNG use varies by setup, so test sets overlap the paper's
-  only partly. Split-independent methods (additive) still match; split-dependent ones
-  (geneformer, gears, …) are comparable within this benchmark, not per perturbation to
-  the paper.
+- **norman_from_scfoundation split = the paper's split since 2026-11-10; earlier results
+  used a different one.** The paper seeds numpy, loads the data, then draws the split.
+  On its cluster the load hit a cell-graph cache and drew nothing; our per-job sandbox
+  rebuilds the cache, which draws from np.random and shifted the split (test sets
+  overlapped the paper's at chance level). `scf_split.py` now seeds again after the
+  load, which reproduces the paper's test and val sets for all five seeds. Every
+  split-dependent result on this dataset from before the fix (all methods but additive)
+  has to be rerun; until then it is comparable within this benchmark only, not per
+  perturbation to the paper.
 - **Blackwell (sm_120) GPUs:** every paper env predates them; the `*-blackwell` envs bump
   torch only (validated numerically harmless for geneformer on adamson).
 

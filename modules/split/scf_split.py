@@ -10,13 +10,12 @@ additive numbers (62/62 test+val perts, pearson 1.0). It is invoked by
 `modules/split/run.sh` exactly like the verbatim script (same CWD/args), so the
 GEARS GO-filter (`PertData.load`) runs identically.
 
-Note on membership: the paper seeds numpy BEFORE `PertData.load` (line 30), and
-`load` consumes RNG while building the cell-graph cache, so the exact train/test/val
-membership depends on that consumption. Under `ob run` every seed runs in a fresh
-working dir (cache rebuilt from scratch), so OUR split is deterministic and
-reproducible; the precise membership may differ from the paper's by the RNG the
-forked GEARS 0.0.2 `load` consumed. The additive *predictions/metrics are
-split-independent and bit-exact* — see memory `norman-scfoundation-additive`.
+Note on membership: the paper seeds numpy BEFORE `PertData.load` (line 30). On the
+paper's cluster `load` found an existing cell-graph cache and drew nothing, so the
+published split is exactly `seed -> choice` (a numpy-only recompute reproduces the
+paper's test and val sets 31/31 for all five seeds). Under `ob run` every job has a
+fresh working dir, `load` rebuilds the cell graphs and draws control cells from
+np.random, which would shift the stream. So we seed again AFTER `load`.
 """
 import argparse
 import json
@@ -36,6 +35,9 @@ np.random.seed(args.seed)
 pert_data = PertData("data/gears_pert_data")
 pert_data.load(data_path="data/gears_pert_data/" + args.dataset_name)
 adata = pert_data.adata
+# load() drew from np.random while building the cell graphs (fresh wd); the paper's
+# run hit a cache and drew nothing. Re-seed so the choices below match the paper.
+np.random.seed(args.seed)
 
 # --- paper lines 104-115 (verbatim logic) ---
 conds = adata.obs["condition"].cat.remove_unused_categories().cat.categories.tolist()
