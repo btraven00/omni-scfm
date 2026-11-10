@@ -27,14 +27,21 @@ paper-setting run still pending · **todo** = not ported.
 
 ## Open issues (not per-method)
 
-- **scFoundation's per-epoch train-set evaluation only prints, but costs ~40% of the run
-  and consumes RNG.** After every epoch the forked GEARS evaluates the whole train set
-  (68k cells on norman_from_scfoundation; >5 h per pass on the RTX PRO 6000) and then val.
-  The train-set metrics are only printed (and optionally logged to wandb); best-model
-  selection uses val only (`gears.py:410–436`). Dropping it would not change model
-  selection, but the train loader is `shuffle=True` on torch's global RNG, so the extra
-  pass shifts every later epoch's shuffle order: not bit-identical. Kept as in the paper;
-  details in `modules/methods/scfoundation/run.sh`.
+- **scFoundation's per-epoch train-set evaluation only prints, costs ~40% of the run,
+  and can be skipped without changing the result (`OMNI_SCF_SKIP_TRAIN_EVAL=1`).** After
+  every epoch the forked GEARS evaluates the whole train set (68k cells on
+  norman_from_scfoundation; >5 h per pass on the RTX PRO 6000); the metrics are only
+  printed, best-model selection uses val only (`gears.py:410–436`). The pass does draw
+  from torch's global RNG (the train loader shuffles), so the skip fetches one batch to
+  make the same draws (`modules/methods/scfoundation/skip_train_eval.py`).
+  Proof (2026-11-10, RTX PRO 6000, 340-cell cut of the real dataset, 2 epochs, batch 6):
+  with `torch.use_deterministic_algorithms(True)`, full / full again / skip give
+  identical RNG-state hashes, epoch-2 first loss, val metrics, best `mse_de` (all
+  printed digits) and test metric. Without deterministic mode two identical full runs
+  already differ after the first step (GPU arithmetic, same RNG hashes), so plain runs,
+  the paper's included, are not bit-reproducible with or without the skip. Predictions
+  were not compared (runs stopped after the test metric). The switch stays off by
+  default; the runs on the paper's split use it.
 - **Full paper grid (decided 2026-11-08: reproduce all of it).** Replogle K562 / RPE1
   are now `download` modules (seeds 1,2, same Dataverse files as the side-load fetcher;
   the fetch path is being redone). Still open before the grid is complete:
