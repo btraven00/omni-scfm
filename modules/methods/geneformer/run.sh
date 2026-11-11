@@ -102,6 +102,13 @@ sed -e "s#/home/ahlmanne/prog/Geneformer/#$SNAP/#g" \
     -e "s#^if args.dataset_name in \['adamson', 'norman', 'replogle_k562_essential', 'replogle_rpe1_essential'\]:#if new_adata.var.index.str.startswith('ENSG').all():#" \
     "$VENDORED" > "$patched"
 grep -q "startswith('ENSG')" "$patched" || { echo "geneformer/run.sh: Ensembl-branch patch did not apply" >&2; exit 5; }
+# Geneformer's eval helper vote() returns the STRING "tie" when two classes share the max
+# logit; one such cell makes y_pred a string array and sklearn's confusion_matrix raises,
+# AFTER the hours of fine-tuning (hit on norman_from_scfoundation seed 1, 2026-11-11). The
+# classifier metrics are only printed; the model is saved before them. Count a tie as its
+# first class (argmax) so the job survives; training and predictions are untouched.
+sed -i "s#^from geneformer import Classifier\$#from geneformer import Classifier\nimport geneformer.evaluation_utils as _eu; _eu.vote = lambda l: l.index(max(l))  \# omni-scfm: no 'tie' string#" "$patched"
+grep -q "_eu.vote = lambda" "$patched" || { echo "geneformer/run.sh: vote() tie patch did not apply" >&2; exit 5; }
 export OMNI_VENDORED_SCRIPT="$patched"
 export PYTHONPATH="$SNAP${PYTHONPATH:+:$PYTHONPATH}"   # `import geneformer` -> the pinned snapshot
 # Everything is local (snapshot + staged data): forbid Hub/datasets network calls per run.
